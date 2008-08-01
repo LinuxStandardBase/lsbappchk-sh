@@ -1,0 +1,8 @@
+As of LSB 4.0 devel, this build requires a setup specdb 
+and the environment variables to access it, similar to 
+the setup for building the specdb itself:
+
+LSBUSER, LSBDBPASSWORD, LSBDBHOST and LSBDB 
+
+To pull source files from CVS, define variable CVSTREES
+(which dir to pull) and maybe CVSROOT.

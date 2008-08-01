@@ -1,0 +1,62 @@
+#!/usr/bin/perl -w
+
+use DBI;
+use Getopt::Long;
+
+use Env qw(LSBUSER LSBDBPASSWD LSBDB LSBDBHOST);
+
+sub usage()
+{
+	print STDERR "Usage: $0 -v lsbversion [-o outfile] \n";
+	print STDERR "Environment variables should be set for connecting to the LSB DB:\n"
+		."    LSBDB, LSBDBHOST, LSBUSER, LSBDBPASSWD.\n";
+	die;
+}
+
+my $lsbversion;
+my $outfile = undef;
+
+GetOptions("v=s" => \$lsbversion, "o=s" => \$outfile);
+
+if ( !defined $lsbversion ) { usage(); }
+if ( !defined $outfile ) {
+	$outfile = "sh-cmdlist-".$lsbversion;
+}
+
+my $trace=0; # trace SQL statments
+
+if ( !defined $LSBDB || !defined $LSBDBHOST ) {	usage(); }
+
+# Establish connection to the database
+$dbh = DBI->connect('DBI:mysql:database='.$LSBDB.';host='.$LSBDBHOST, $LSBUSER, $LSBDBPASSWD)
+    or die "Couldn't connect to database: ".DBI->errstr;
+
+# Get the list of cmds
+open CMDS, ">$outfile"
+	or die "Can't open '$outfile' for writing.";
+
+print CMDS "# Generated file\n";
+print CMDS "# List of LSB $lsbversion commands for lsbappchk-ssh\n";
+
+$select = "SELECT DISTINCT Cname FROM Command "
+		."LEFT JOIN ModCmd ON MCcid=Cid "
+		."WHERE (MCappearedin <= '$lsbversion' and MCappearedin<>'') "
+		."AND (MCwithdrawnin IS NULL OR MCwithdrawnin > '$lsbversion') "
+		."ORDER BY Cname "
+		;
+
+print $select if $trace;
+
+$sth = $dbh->prepare($select) or die "Couldn't prepare $select query: ".DBI->errstr;
+$sth->execute or die "Couldn't execute $select query: ".DBI->errstr;
+
+for ( 1 .. $sth->rows ) {
+	$entry = $sth->fetchrow_hashref;
+	$cmdname=$entry->{'Cname'};
+	print CMDS "$cmdname\n";
+}
+$sth->finish;
+close(CMDS);
+
+$dbh->disconnect;
+
