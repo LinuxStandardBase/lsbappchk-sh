@@ -12,6 +12,7 @@ URL: http://www.linuxbase.org/test
 BuildRoot: %{_tmppath}/%{name}-root
 AutoReqProv: no
 BuildArch: noarch
+BuildRequires: perl(Parse::Eyapp) 
 
 %description
 This is the official package version of the LSB Shell Script Checker. 
