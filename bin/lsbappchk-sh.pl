@@ -91,7 +91,7 @@ sub print_help {
 
 sub usage {
     return <<HEREDOC
-Usage: $0 --lsb=LSBVER [-o <journal file>] [-c <LSB command list file>] <script>
+Usage: $0 [--lsb=LSBVER] [-o <journal file>] [-c <LSB command list file>] <script>
 HEREDOC
 }
 

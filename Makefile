@@ -10,14 +10,14 @@ DEFAULT_MYSQL_USER=lsbuser
 DEFAULT_MYSQL_PWD=
 
 
-all: ShParser.pm cmdlist
+all: ShParser.pm
 
 ShParser.pm: src/sh.yp
 	$(EYAPP) -m $(NAME) -s $^ 2>/dev/null
 	@mkdir -p lib/appchk 2>/dev/null
 	mv $(NAME).pm $(PARSER_MODULE)
 
-cmdlist:
+gensrc:
 	@mkdir -p share/appchk
 	if [ x"$$LSBUSER" = "x" ] ; then \
 		export LSBUSER=$(DEFAULT_MYSQL_USER) LSBDBPASSWD=$(DEFAULT_MYSQL_PWD) \

@@ -1,0 +1,20 @@
+-= HOW TO BUILD =-
+
+Run 'make' to build ShParser.pm module. The 'eyapp' tool is needed for this.
+(http://search.cpan.org/~casiano/Parse-Eyapp/)
+
+-= HOW TO MAKE RPM/DEB/TAR.GZ PACKAGES =-
+
+Go to ./scripts/package.
+Run 'make'.
+It will export the sources from Bazaar, build ShParser.pm module (the 'eyapp'
+tool is needed!), and make packages of all the types.
+
+
+-= HOW TO REBUILD sh-cmdlist-* FILES FROM THE LSB DATABASE (devel) =-
+
+Run 'LSBUSER=lsbuser LSBDBPASSWD=<pwd> LSBDB=lsb LSBDBHOST=<host> make gensrc'.
+It would run './scripts/mkcmdlist2' tool which would connect to the DB and write
+the sh-cmdlist-* files.
+
+The up-to-date versions of these files should be already in the bzr branch.

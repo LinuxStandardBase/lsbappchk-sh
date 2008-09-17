@@ -95,7 +95,7 @@ ifdef CVSTREES
 	tar czf $(SOURCE1) $(FULL_PACKAGE_NAME)
 	@rm -rf $(FULL_PACKAGE_NAME)
 	# Remove CVSTREES
-	@rm -rf `echo 'fsg/lsbappchk-sh' | sed 's/\/.*//'`
+	@rm -rf `echo '$(CVSTREES)' | sed 's/\/.*//'`
 else
 	bzr export $(SOURCE1) $(BZRTREES)/$(BZR_MODULE)
 endif
