@@ -67,6 +67,7 @@ install
 install_initd
 ipcrm
 ipcs
+java
 join
 kill
 killall

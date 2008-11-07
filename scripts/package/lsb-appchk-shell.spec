@@ -30,12 +30,11 @@ make
 
 rm -rf ${RPM_BUILD_ROOT}
 mkdir -p ${RPM_BUILD_ROOT}%{basedir}/bin
-mkdir -p ${RPM_BUILD_ROOT}%{basedir}/lib/appchk
 mkdir -p ${RPM_BUILD_ROOT}%{basedir}/share/appchk
 cp -p bin/lsbappchk-sh.pl ${RPM_BUILD_ROOT}%{basedir}/bin
-cp -p lib/appchk/ShParser.pm ${RPM_BUILD_ROOT}%{basedir}/lib/appchk
-mkdir -p ${RPM_BUILD_ROOT}%{basedir}/lib/appchk/List
-cp -p lib/appchk/List/MoreUtils.pm ${RPM_BUILD_ROOT}%{basedir}/lib/appchk/List
+cp -p share/appchk/ShParser.pm ${RPM_BUILD_ROOT}%{basedir}/share/appchk
+mkdir -p ${RPM_BUILD_ROOT}%{basedir}/share/appchk/List
+cp -p share/appchk/List/MoreUtils.pm ${RPM_BUILD_ROOT}%{basedir}/share/appchk/List
 cp -p share/appchk/sh-cmdlist-* ${RPM_BUILD_ROOT}%{basedir}/share/appchk
 
 # License files
@@ -53,8 +52,6 @@ fi
 %defattr(-,root,root)
 
 /opt/lsb/bin/lsbappchk-sh.pl
-%dir /opt/lsb/lib/appchk
-/opt/lsb/lib/appchk/*
 %dir /opt/lsb/share/appchk
 /opt/lsb/share/appchk/*
 %dir /opt/lsb/doc/%{name}

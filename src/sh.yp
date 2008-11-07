@@ -465,8 +465,8 @@ sub read_line_sub {
     my ($self) = @_;
     
     my $s = "";
-    if ( $self->YYData->{INPUT} =~ s/\G.*(\n|\z)// ) {
-        $s = $&;
+    if ( $self->YYData->{INPUT} =~ s/(\G.*(\n|\z))// ) {
+        $s = $1;
     }
     return undef if $s eq "";
     
@@ -493,7 +493,7 @@ my @operator_lexems = qw(
         \(\(  \)\)  &>  <<<  <\(  >\(
     );
 
-my $re_operators = "(".(join "|", map { my $a=$_; $a=~s/[\(\)\[\]\|\\\/\+\?\.\*]/\\$&/g; $a } @operator_lexems).")";
+my $re_operators = "(".(join "|", map { my $a=$_; $a=~s/([\(\)\[\]\|\\\/\+\?\.\*])/\\$1/g; $a } @operator_lexems).")";
 
 my %op_parts = ();
 foreach my $op ( @operator_lexems ) {
@@ -503,7 +503,7 @@ foreach my $op ( @operator_lexems ) {
     }
 }
 
-my $re_op_parts = "(".(join "|", map { my $a=$_; $a=~s/[\(\)\[\]\|\\\/\+\?\.\*]/\\$&/g; $a } keys %op_parts).")";
+my $re_op_parts = "(".(join "|", map { my $a=$_; $a=~s/([\(\)\[\]\|\\\/\+\?\.\*])/\\$1/g; $a } keys %op_parts).")";
 
 
 sub read_token {
@@ -526,9 +526,9 @@ sub read_token {
 
     my $word = "";
     local *shift_char = sub {
-        if ( $$line =~ s/^.//s ) {
-            $token .= $&;
-            return $&;
+        if ( $$line =~ s/^(.)//s ) { # read one char
+            $token .= $1;
+            return $1;
         }
         return '';
     };
@@ -607,8 +607,8 @@ sub read_token {
         #print "*$quotmode* $$line\n" if $line; # DBG:
         
         my $nc = "";
-        if ( $$line =~ /^./s ) {
-            $nc = $&;
+        if ( $$line =~ /^(.)/s ) { # read one char
+            $nc = $1;
             if ( $nc eq '\\' ) {
                 $$line =~ s/^\\\n//s and redo;
             }
@@ -662,9 +662,9 @@ sub read_token {
                 if ( $token ne '' ) {
                     last; # delimit the token
                 } else {
-                    $$line =~ s/^[ \t\r]+//s; # discard the current character
+                    $$line =~ s/^([ \t\r]+)//s; # discard the current character
                     if ( $in_quote && $in_quote eq '$(' ) {
-                        $token = $&;
+                        $token = $1;
                         last;
                     }
                     next; # continue
@@ -767,9 +767,9 @@ sub read_token {
                     $word .= shift_char();
                     next;
                 }
-                if ( $$line =~ s/^\)\)// ) {
-                    $token .= $&;
-                    off_quotmode($&);
+                if ( $$line =~ s/^(\)\))// ) {
+                    $token .= $1;
+                    off_quotmode($1);
                     next;
                 }
             }
@@ -806,9 +806,9 @@ sub read_token {
         # dollar sign ($), backquote (`), and backslash (\).
         if ( $nc =~ /[\$\`]/ && $quotmode ne "'"  && $quotmode ne "`" ) {
             if ( $$line =~ s/^(\$\(\(|\$\(|\${|\$\[|\`|\$)// ) {
-                $token .= $&;
-                set_quotmode($&);
-                if ( $& eq '$(' ) {
+                $token .= $1;
+                set_quotmode($1);
+                if ( $1 eq '$(' ) {
                     my $par_stack = 1;
                     while ( 1 ) {
                         # The input characters within the quoted string that are also enclosed
@@ -841,7 +841,7 @@ sub read_token {
                         $word .= $token1;
                     }
                 } else {
-                    $arithm_p_count = 0 if $& eq '$((';
+                    $arithm_p_count = 0 if $1 eq '$((';
                 }
                 next;
             }
@@ -883,14 +883,16 @@ sub read_token {
             # but excluding, the next <newline> shall be discarded as a comment.
             # The <newline> that ends the line is not considered part of the comment.
             if ( $nc eq '#' ) { # [The token is '' due to the previous rule.]
-                $$line =~ s/^#[^\n]*//s; # discard characters up to <newline>
-                my $comment = $&;
+                $$line =~ s/^(#[^\n]*)//s; # discard characters up to <newline>
+                my $comment = $1;
                 if ( $comment =~ /\\$/ ) { # Comment ends with \<newline>
                     $self->call_hook($self->YYData->{LINENO}, "S_NEWLINE_IN_COMMENT", $comment);
                 }
                 next;
             }
         }
+        
+        # TODO: 3.5.1 Brace Expansion a{b,c,d}e in "" quotmode
         
         # The current character is used as the start of a new word.
         $word .= shift_char();

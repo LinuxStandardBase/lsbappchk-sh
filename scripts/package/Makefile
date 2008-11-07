@@ -1,8 +1,8 @@
 # XXX We should play the usual tricks defining stuff here and building
 # XXX a specfile from this info, but not yet: for now keep in sync
 PACKAGE=lsb-appchk-shell
-VERSION=0.9
-RELEASE=2
+VERSION=1.0
+RELEASE=1
 
 #
 # Derive date string for daily snapshots
@@ -91,6 +91,7 @@ endif
 $(SOURCE1):
 ifdef CVSTREES
 	cvs export $(EXPORT_TAG) $(CVSTREES)
+	cd $(CVSTREES) && make gensrc
 	mv $(CVSTREES) $(FULL_PACKAGE_NAME)
 	tar czf $(SOURCE1) $(FULL_PACKAGE_NAME)
 	@rm -rf $(FULL_PACKAGE_NAME)
