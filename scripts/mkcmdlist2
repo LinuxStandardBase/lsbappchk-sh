@@ -40,12 +40,12 @@ print CMDS "# List of LSB $lsbversion commands for lsbappchk-ssh\n";
 
 $select = "SELECT DISTINCT Cname FROM Command "
 		."LEFT JOIN ModCmd ON MCcid=Cid "
-		."WHERE (MCappearedin <= '$lsbversion' and MCappearedin<>'') "
+		."WHERE (MCappearedin<>'' and MCappearedin <= '$lsbversion') "
 		."AND (MCwithdrawnin IS NULL OR MCwithdrawnin > '$lsbversion') "
 		."ORDER BY Cname "
 		;
 
-print $select if $trace;
+print "$select\n" if $trace;
 
 $sth = $dbh->prepare($select) or die "Couldn't prepare $select query: ".DBI->errstr;
 $sth->execute or die "Couldn't execute $select query: ".DBI->errstr;
