@@ -27,17 +27,15 @@ my $VERSION = "0.9";
 
 my $input_files = {}; # $input_files->{$file}->{FILENAME, TYPE, JOURNAL};
 my @file_order = ();
-my $cmdlist_file = $FindBin::Bin."/../share/appchk/sh-cmdlist-3.2";
+my $cmdlist_file = $FindBin::Bin."/../share/appchk/sh-cmdlist-4.0";
 my $lsb_ver;
 
 #-----------------------------------------------------------------------
 
 sub BEGIN {
 	# Add the lib directory to the @INC to be able to include local modules.
-	push @INC, $FindBin::Bin.'/../share/appchk';
+	unshift @INC, $FindBin::Bin.'/../share/appchk';
 }
-
-# use Carp; $SIG{__DIE__} = $SIG{__WARN__} = sub { print "<h1>Error</h1>\n"; print @_,"\n\n"; print Carp::longmess."\n"; }; use Print_ref; # DBG:
 
 ## INITIALIZATION ##
 my $fallback_journal_file = "appchk-sh.journal";
@@ -93,7 +91,7 @@ if ( !@file_order ) {
 }
 
 if ( !defined $lsb_ver ) {
-	$lsb_ver = '3.2';
+	$lsb_ver = '4.0';
 }
 
 sub print_help {
@@ -168,7 +166,7 @@ sub read_file {
 		$text = <FILE>;
 		close FILE;
 	};
-	fail("Can't read file '$filename'") if !defined $text;
+	( defined $text ) or fail("Can't read file '$filename'");
 	
 	return $text;
 }
@@ -451,12 +449,12 @@ sub OnShebang {
 			tp_result 'FAIL', "$filename: 1: "
 					."The '$cmd' shell is not included in LSB."
 					." You should port the script to the 'sh' language."
-					."\nAnyway, the file will be checked as a 'sh' script.";
+					." Anyway, the file will be checked as a 'sh' script.";
 			return;
 		} else {
 			tp_result 'FAIL', "$filename: 1: "
 					."'$cmd' is not a shell interpreter."
-					."\nAnyway, the file will be checked as a 'sh' script.";
+					." Anyway, the file will be checked as a 'sh' script.";
 			return;
 		}
 	} else {
@@ -535,15 +533,16 @@ sub OnCommand {
 	my $cmdname = $cmd->[0];
 	
 	# Assignments also go into this sub
-	if ( $cmdname && $cmdname =~ /^([A-Za-z_][A-Za-z_0-9]*)(=|\+=)/ ) {
-		if ( $2 eq "+=" ) {
+	if ( $cmdname && $cmdname =~ /^([A-Za-z_][A-Za-z_0-9]*)(\[[^\]]+\])?(=|\+=)/ ) {
+		if ( defined $2 ) {
+			tp_result 'FAIL', file_pos($parser)
+				."Arrays are not portable. Near: ".limit_len($cmdname);
+		}
+		if ( $3 eq "+=" ) {
 			tp_result 'FAIL', file_pos($parser)
 				."'+=' is a bashism. Should be ".'VAR="${VAR}foo"';
-			return;
-		} else {
-			tp_result 'PASS';
-			return;
 		}
+			return;
 	}
 
 	# unquote the command name
@@ -562,6 +561,7 @@ sub OnCommand {
 		if ( ref($params_good) eq "ARRAY" && @$params_good ) {
 			# TODO: check params
 		}
+		
 		if ( $cmdname eq "test" ) {
 			# Check params
 			foreach my $param ( @_ ) {
@@ -574,8 +574,7 @@ sub OnCommand {
 				}
 			}
 		}
-
-		if ( $cmdname eq "." ) { # dot operator
+		elsif ( $cmdname eq "." ) { # The "dot" operator
 			my ($param) = @_;
 			$param = ShParser::unquote($param);
 			if ( $param ) {
@@ -583,24 +582,48 @@ sub OnCommand {
 				if ( !$filename ) {
 					if ( $param eq '/lib/lsb/init-functions' ) { tp_result 'PASS'; return; }
 					tp_result 'FIP', file_pos($parser)
-						."Unknown file is included via the dot operator: '. $param'";
+						."Unknown file was included via the dot operator: '. $param'";
 					return;
 				}
 				my $res = check_file( $input_files->{$filename}, 0 ); # parse, but do not check
 				if ( !defined $res ) {
 					tp_result 'WARNING', file_pos($parser)
-						."Possible ring including.";
+						."Possible loop including.";
 				}
 			}
 		}
 		elsif ( $cmdname eq "eval" ) {
-			# [Eval is usually used for doing tricks, so we don't check it]
+			# [Eval is usually used for doing tricks, so don't check it at all]
 		}
 		elsif ( $cmdname eq "exec" ) {
 			if ( @_ ) {
 				$_[0] = [ShParser::unquote($_[0]), 0, $_[0]]; # Make a WORD token
 				if ( $_[0] ) {
 					OnCommand($parser, 'COMMAND', @_);
+				}
+				
+				# If exec is specified with command, it shall replace the shell
+				# with command without creating a new process.
+				
+				# Check unconditional exit
+				my $i = 0;
+				while ( $parser->{STACK}[$i] && !defined $parser->{STACK}[$i][1] ) { $i++ };
+				if ( $i == 4 && $parser->{STACK}[$i][1][0] eq $cmdname ) {
+					if ( $parser->YYData->{INPUT} !~ /^\s*$/s ) {
+						tp_result 'FIP', file_pos($parser)."Unconditional exit faced (exec). Stop parsing.";
+						$parser->YYData->{INPUT} = ""; # clean up the rest of the script
+					}
+				}
+			}
+		}
+		elsif ( $cmdname eq "exit" ) {
+			# Check unconditional exit
+			my $i = 0;
+			while ( $parser->{STACK}[$i] && !defined $parser->{STACK}[$i][1] ) { $i++ };
+			if ( $i == 4 && $parser->{STACK}[$i][1][0] eq $cmdname ) {
+				if ( $parser->YYData->{INPUT} !~ /^\s*$/s ) {
+					tp_result 'FIP', file_pos($parser)."Unconditional exit faced. Stop parsing.";
+					$parser->YYData->{INPUT} = ""; # clean up the rest of the script
 				}
 			}
 		}
@@ -637,11 +660,11 @@ sub OnCommand {
 sub limit_len {
 	my ($line) = @_;
 	
+	$line =~ s/\s*[\r\n].*//s;
+	
 	if ( length($line) > 120 ) {
 		return substr($line, 0,100);
 	}
-	
-	$line =~ s/\s*\n$//s;
 	
 	return $line;
 }
@@ -715,7 +738,7 @@ sub GenHook {
 	}
 	elsif ( $hookname eq "FOR_VARSEMI" ) {
 		tp_result 'WARNING', file_pos($parser)
-				."According to the standard 'for ".$_[0]."; do' should be replaced with 'for ".$_[0]." do' (semicolon omited).";
+				."According to the standard 'for ".limit_len($_[0])."; do' should be replaced with 'for ".limit_len($_[0])." do' (semicolon omited).";
 	}
 	elsif ( $hookname eq "NOT_IO_NUMBER" ) {
 		my $str = $_[0];
@@ -975,6 +998,8 @@ read_lsb_cmdlist( $cmdlist_file );
 for my $filename ( @file_order ) {
 	my $file = $input_files->{$filename};
 	next if $file->{TYPE} ne 'SH';
+	
+	print "TESTING: $filename\n"; # For AppChecker
 	
 	if ( $journal_fh && $file->{JOURNAL} ne $current_journal ) {
 		# Close the previous journal
