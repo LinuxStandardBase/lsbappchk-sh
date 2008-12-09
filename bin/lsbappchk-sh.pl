@@ -384,7 +384,7 @@ my $default_jfh = undef; # File handle for fallback journal
 sub default_journal_init {
 	if ( !$default_jfh ) {
 		open $default_jfh, ">$fallback_journal_file"
-			or return complain("Failed to open journal for writing: '$fallback_journal_file'");
+			or die "Failed to open journal for writing: '$fallback_journal_file'";
 		$journal_fh = $default_jfh;
 		journal_header();
 	} else {
@@ -401,7 +401,7 @@ sub Journal_Init {
 	}
 	$journal_fh = undef;
 	open $journal_fh, ">$journal_file"
-		or return complain("Failed to open journal for writing: '$journal_file'");
+		or die "Failed to open journal for writing: '$journal_file'";
 	$current_journal = $journal_file;
 	
 	journal_header();
