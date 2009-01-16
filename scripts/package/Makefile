@@ -2,7 +2,7 @@
 # XXX a specfile from this info, but not yet: for now keep in sync
 PACKAGE=lsb-appchk-shell
 VERSION=4.0.0
-RELEASE=1
+RELEASE=2
 
 #
 # Derive date string for daily snapshots
