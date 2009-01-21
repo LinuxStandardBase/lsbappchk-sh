@@ -34,7 +34,7 @@ my $lsb_ver;
 
 sub BEGIN {
 	# Add the lib directory to the @INC to be able to include local modules.
-	unshift @INC, $FindBin::Bin.'/../share/appchk';
+	push @INC, $FindBin::Bin.'/../share/appchk';
 }
 
 ## INITIALIZATION ##
@@ -78,8 +78,6 @@ while ( @args ) {
 					JOURNAL => $journal_file,
 			};
 			push @file_order, $arg;
-
-			# TODO: symlinks!!!
 		}
 	}
 }
@@ -138,7 +136,7 @@ sub read_file_list {
 			push @file_order, $filename;
 		}
 		else {
-			print STDERR "Wrong line ($list_file:$.): '$line'\n"; # DBG:
+			print STDERR "Wrong line ($list_file:$.): '$line'\n";
 		}
 	}
 	close FILE;
@@ -146,14 +144,10 @@ sub read_file_list {
 
 use ShParser;
 
-#use Parse::Eyapp; # DBG:
-#my $grammar_file = 'src/sh.yp';
-#my $grammar = read_file($grammar_file);
-#Parse::Eyapp->new_grammar(
-	#input=>$grammar,
-	#classname=>'ShParser',
-	#firstline=>0
-#);
+# Export:
+for my $name (qw/serialize unquote limit_len/) {
+	$::{$name} = \&{"ShParser::$name"};
+}
 
 sub read_file {
 	my ($filename) = @_;
@@ -184,24 +178,25 @@ sub NewShParser {
 	unless ( $nocheck ) {
 		$parser->YYData->{HOOKS}{COMMAND} = \&OnCommand;
 
-		$parser->YYData->{HOOKS}{BAD_FUNC_DEF}  = \&GenHook;
-		$parser->YYData->{HOOKS}{SELECT}		= \&GenHook;
-		$parser->YYData->{HOOKS}{ANDGREAT}	  = \&GenHook;
-		$parser->YYData->{HOOKS}{HERESTRING}	= \&GenHook;
-		$parser->YYData->{HOOKS}{PROCSUBST}	 = \&GenHook;
-		$parser->YYData->{HOOKS}{BADNAME}	   = \&GenHook;
-		$parser->YYData->{HOOKS}{BAD_ASSIGNMENT} = \&GenHook;
-		$parser->YYData->{HOOKS}{SDOLLAR}	   = \&GenHook;
-		$parser->YYData->{HOOKS}{DBRACKET}	  = \&GenHook;
-		$parser->YYData->{HOOKS}{DPAR}		  = \&GenHook;
-		$parser->YYData->{HOOKS}{NOT_IO_NUMBER} = \&GenHook;
-		$parser->YYData->{HOOKS}{LOOP_DPAR}	 = \&GenHook;
-		$parser->YYData->{HOOKS}{FOR_VARSEMI}   = \&GenHook;
+		$parser->YYData->{HOOKS}{BAD_FUNC_DEF}   = \&GenHook;
+		$parser->YYData->{HOOKS}{SELECT}         = \&GenHook;
+		$parser->YYData->{HOOKS}{ANDGREAT}       = \&GenHook;
+		$parser->YYData->{HOOKS}{HERESTRING}     = \&GenHook;
+		$parser->YYData->{HOOKS}{PROCSUBST}      = \&GenHook;
+		$parser->YYData->{HOOKS}{BADNAME}        = \&GenHook;
+		$parser->YYData->{HOOKS}{ASSIGNMENT_WORD} = \&GenHook;
+		$parser->YYData->{HOOKS}{SDOLLAR}        = \&GenHook;
+		$parser->YYData->{HOOKS}{DPAR}           = \&GenHook;
+		$parser->YYData->{HOOKS}{NOT_IO_NUMBER}  = \&GenHook;
+		$parser->YYData->{HOOKS}{LOOP_DPAR}      = \&GenHook;
+		$parser->YYData->{HOOKS}{FOR_VARSEMI}    = \&GenHook;
+		$parser->YYData->{HOOKS}{EXTGLOB}        = \&GenHook;
+		$parser->YYData->{HOOKS}{CRLF}           = \&GenHook;
 		
-		$parser->YYData->{HOOKS}{EXPANSION} = \&OnExpansion;
+		$parser->YYData->{HOOKS}{EXPANSION}      = \&OnExpansion;
 
-		$parser->YYData->{HOOKS}{PARSERERR} = \&OnParserErr;
-		$parser->YYData->{HOOKS}{MISCERR}   = \&OnMiscErr;
+		$parser->YYData->{HOOKS}{PARSERERR}      = \&OnParserErr;
+		$parser->YYData->{HOOKS}{MISCERR}        = \&OnMiscErr;
 		
 		$parser->YYData->{HOOKS}{S_NEWLINE_IN_COMMENT} = \&OnSNewline_in_comment;
 	}
@@ -477,13 +472,15 @@ sub file_pos {
 	$res .= $hook_info->{FILENAME}.": ";
 	$res .= $hook_info->{LINENO}.": " if $hook_info->{LINENO};
 	
+	# $linenum may be undefined in case of syntax error
+	
 	return $res;
 }
 
 sub find_input_file ($) {
 	my ($filename) = @_;
 	
-	$filename =~ s{(^|.*/)..?(?=/)}{}; # remove ../ or ./
+	while ( $filename =~ s{(^|.*/)\.\.?/}{} ) {}; # remove ../ or ./, thus leave only a distinct part of the path
 	my $l = length($filename);
 	
 	# Since the current path isn't known, compare only the ends of file locations.
@@ -491,8 +488,7 @@ sub find_input_file ($) {
 	
 	foreach my $input_file ( keys %$input_files ) {
 		my $tmp = $input_file;
-		$tmp = './'.$tmp if $tmp !~ m(/);
-		if ( '/'.$filename eq substr($tmp, -$l-1) ) {
+		if ( $filename eq substr($tmp, -$l) ) {
 			# compare string ends
 			return $input_file;
 		}
@@ -507,7 +503,7 @@ sub OnFunction {
 	my $parser = shift;
 	my $hookname = shift;
 	
-	my $funcname = shift;
+	my $funcname = serialize($_[0]);
 	
 	$function_names{$funcname} = 1;
 }
@@ -530,28 +526,18 @@ sub OnCommand {
 	my $cmd = shift;
 	# @_ - command parameters
 	
-	my $cmdname = $cmd->[0];
-	
-	# Assignments also go into this sub
-	if ( $cmdname && $cmdname =~ /^([A-Za-z_][A-Za-z_0-9]*)(\[[^\]]+\])?(=|\+=)/ ) {
-		if ( defined $2 ) {
-			tp_result 'FAIL', file_pos($parser)
-				."Arrays are not portable. Near: ".limit_len($cmdname);
-		}
-		if ( $3 eq "+=" ) {
-			tp_result 'FAIL', file_pos($parser)
-				."'+=' is a bashism. Should be ".'VAR="${VAR}foo"';
-		}
-			return;
+	my $cmdname;
+	if ( defined $cmd->[1] ) {
+		$cmdname = serialize($cmd->[1]);
 	}
-
+	
 	# unquote the command name
-	if ( defined $cmd->[2] ) {
-		$cmdname = ShParser::unquote($cmd->[2]);
+	if ( defined $cmd->[1] ) {
+		$cmdname = unquote($cmd->[1]);
 		return if not defined $cmdname;
 	}
 	
-	if ( defined $ShParser::reserved{$cmdname} ) {
+	if ( defined $ShParser::{reserved}{$cmdname} ) {
 		# The parser has mistaken
 		return;
 	}
@@ -565,7 +551,7 @@ sub OnCommand {
 		if ( $cmdname eq "test" ) {
 			# Check params
 			foreach my $param ( @_ ) {
-				$param = ShParser::unquote($param);
+				$param = unquote($param);
 				next if !defined $param || $param eq "";
 				if ( $param eq "==" ) {
 					tp_result 'FAIL', file_pos($parser)
@@ -576,13 +562,13 @@ sub OnCommand {
 		}
 		elsif ( $cmdname eq "." ) { # The "dot" operator
 			my ($param) = @_;
-			$param = ShParser::unquote($param);
+			$param = unquote($param);
 			if ( $param ) {
 				my $filename = find_input_file($param);
 				if ( !$filename ) {
 					if ( $param eq '/lib/lsb/init-functions' ) { tp_result 'PASS'; return; }
 					tp_result 'FIP', file_pos($parser)
-						."Unknown file was included via the dot operator: '. $param'";
+						."Unknown file was included via the dot operator: '. ".limit_len($param)."'";
 					return;
 				}
 				my $res = check_file( $input_files->{$filename}, 0 ); # parse, but do not check
@@ -596,8 +582,8 @@ sub OnCommand {
 			# [Eval is usually used for doing tricks, so don't check it at all]
 		}
 		elsif ( $cmdname eq "exec" ) {
-			if ( @_ ) {
-				$_[0] = [ShParser::unquote($_[0]), 0, $_[0]]; # Make a WORD token
+			if ( serialize($_[0]) ) {
+				$_[0] = [0, $_[0]]; # Make a WORD token
 				if ( $_[0] ) {
 					OnCommand($parser, 'COMMAND', @_);
 				}
@@ -608,9 +594,12 @@ sub OnCommand {
 				# Check unconditional exit
 				my $i = 0;
 				while ( $parser->{STACK}[$i] && !defined $parser->{STACK}[$i][1] ) { $i++ };
-				if ( $i == 4 && $parser->{STACK}[$i][1][0] eq $cmdname ) {
+				if ( $parser->{STACK}[$i][1][1]
+					&& serialize($parser->{STACK}[$i][1][1]) eq $cmdname ) 
+				{
 					if ( $parser->YYData->{INPUT} !~ /^\s*$/s ) {
-						tp_result 'FIP', file_pos($parser)."Unconditional exit faced (exec). Stop parsing.";
+						tp_result 'FIP', file_pos($parser)
+							."Unconditional exit faced (exec). Stop parsing.";
 						$parser->YYData->{INPUT} = ""; # clean up the rest of the script
 					}
 				}
@@ -620,9 +609,12 @@ sub OnCommand {
 			# Check unconditional exit
 			my $i = 0;
 			while ( $parser->{STACK}[$i] && !defined $parser->{STACK}[$i][1] ) { $i++ };
-			if ( $i == 4 && $parser->{STACK}[$i][1][0] eq $cmdname ) {
+			if ( $parser->{STACK}[$i][1][1]
+				&& serialize($parser->{STACK}[$i][1][1]) eq $cmdname )
+			{
 				if ( $parser->YYData->{INPUT} !~ /^\s*$/s ) {
-					tp_result 'FIP', file_pos($parser)."Unconditional exit faced. Stop parsing.";
+					tp_result 'FIP', file_pos($parser)
+						."Unconditional exit faced. Stop parsing.";
 					$parser->YYData->{INPUT} = ""; # clean up the rest of the script
 				}
 			}
@@ -649,24 +641,12 @@ sub OnCommand {
 		return;
 	}
 	
-	if ( $cmdname =~ /^[^A-Za-z0-9_\[\(]/ ) { # Not a command
+	if ( $cmdname =~ /^[^A-Za-z0-9_\[\(\)\]]/ ) { # Not a command
 		return; # Can't say anything useful
 	}
 	
 	tp_result 'FAIL', file_pos($parser)
-				."'$cmdname' isn't included in LSB $lsb_ver.";
-}
-
-sub limit_len {
-	my ($line) = @_;
-	
-	$line =~ s/\s*[\r\n].*//s;
-	
-	if ( length($line) > 120 ) {
-		return substr($line, 0,100);
-	}
-	
-	return $line;
+				."'".limit_len($cmdname)."' isn't included in LSB $lsb_ver.";
 }
 
 sub GenHook {
@@ -676,7 +656,7 @@ sub GenHook {
 	if ( $hookname eq "BAD_FUNC_DEF" ) {
 		tp_result 'FAIL', file_pos($parser)
 				."The 'function' keyword in the definition of function '"
-				.limit_len($_[0])."' should be omitted";
+				.limit_len(serialize($_[0]))."' should be omitted";
 	}
 	elsif ( $hookname eq "SELECT" ) {
 		tp_result 'FAIL', file_pos($parser)
@@ -696,36 +676,42 @@ sub GenHook {
 	}
 	elsif ( $hookname eq "BADNAME" ) {
 		tp_result 'FAIL', file_pos($parser)
-				."NAME token is expected: '".limit_len($_[0])."'.";
+				."NAME token is expected: '".limit_len(serialize($_[0]))."'.";
 	}
-	elsif ( $hookname eq "BAD_ASSIGNMENT" ) {
-		tp_result 'FAIL', file_pos($parser)
-				."ASSIGNMENT token is expected: '".limit_len($_[0])."'.";
+	elsif ( $hookname eq "ASSIGNMENT_WORD" ) {
+		my $str = serialize($_[0]);
+		if ( $str =~ m/^\w+(\[[^\]]*\])?(\+)?=/ ) {
+			if ( defined $1 ) {
+				tp_result 'FAIL', file_pos($parser)
+					."Arrays are not portable. Near: '".limit_len($str)."'.";
+			}
+			if ( defined $2 ) {
+				tp_result 'FAIL', file_pos($parser)
+					."'+=' is a bashism. Should be ".'VAR="${VAR}foo"';
+			}
+		}
+		# else: VAR=(...) - was already reported at expansion of =(...)
 	}
 	elsif ( $hookname eq "SDOLLAR" ) {
-		# $_[0] - line
+		my $str = serialize($_[0]);
 		my $quotmode = $_[1];
 		
-		if ( ($quotmode eq '' || $quotmode eq '$(') && $_[0] =~ /^['"]/ ) {
-			if ( $_[0] =~ /^'/ ) {
+		if ( ($quotmode eq '' || $quotmode eq '$(') && $str =~ /^['"]/ ) {
+			if ( $str =~ /^'/ ) {
 				tp_result 'FAIL', file_pos($parser)
-					."ANSI-C Quoting syntax is not portable: '\$".limit_len($_[0])."'.";
+					."ANSI-C Quoting syntax is not portable: '\$".limit_len($str)."'.";
 			}
-			elsif ( $_[0] =~ /^"/ ) {
+			elsif ( $str =~ /^\"/ ) {
 				tp_result 'FAIL', file_pos($parser)
-					."Locale Translation syntax is not portable: '\$".limit_len($_[0])."'.";
+					."Locale Translation syntax is not portable: '\$".limit_len($str)."'.";
 			}
 		}
-		elsif ( $_[0] !~ /^[\d\\\/\[\]% ]/ ) {
+		elsif ( $str !~ /^[\d\\\/\[\]% ]/ ) {
 			tp_result 'WARNING', file_pos($parser)
-					."It would be better to escape the '\$' character in this case: '\$".limit_len($_[0])."'."
-					.( length($_[0]) eq 1 ? " (There is no such special variable)" : "" )
+					."It would be better to escape the '\$' character in this case: '\$".limit_len($str)."'."
+					.( length($str) eq 1 ? " (There is no such special variable)" : "" )
 					;
 		}
-	}
-	elsif ( $hookname eq "DBRACKET" ) {
-		tp_result 'FAIL', file_pos($parser)
-				."[[...]] syntax is a bashism and not portable.";
 	}
 	elsif ( $hookname eq "DPAR" ) {
 		tp_result 'FAIL', file_pos($parser)
@@ -734,14 +720,14 @@ sub GenHook {
 	}
 	elsif ( $hookname eq "LOOP_DPAR" ) {
 		tp_result 'FAIL', file_pos($parser)
-				."'".$_[0]." (( ... ))' syntax is a bashism and not portable.";
+				."'".serialize($_[0])." (( ... ))' syntax is a bashism and not portable.";
 	}
 	elsif ( $hookname eq "FOR_VARSEMI" ) {
 		tp_result 'WARNING', file_pos($parser)
-				."According to the standard 'for ".limit_len($_[0])."; do' should be replaced with 'for ".limit_len($_[0])." do' (semicolon omited).";
+				."According to the standard 'for ".limit_len(serialize($_[0]))."; do' should be replaced with 'for ".limit_len(serialize($_[0]))." do' (semicolon omited).";
 	}
 	elsif ( $hookname eq "NOT_IO_NUMBER" ) {
-		my $str = $_[0];
+		my $str = serialize($_[0]);
 		if ( $str =~ /^\d+[<>&]+[\/\w_]+/ ) {
 			$str = $&;
 		}
@@ -749,9 +735,19 @@ sub GenHook {
 				."According to POSIX the part of redirection in line '".limit_len($parser->YYData->{LAST_LINE})
 				."' should be treated as '".limit_len($str)."'. For example, 'dash' will fail here.";
 	}
+	elsif ( $hookname eq "CRLF" ) {
+		if ( !$parser->YYData->{CRLF_REPORTED} ) { # To avoid reporting this error for each line.
+			tp_result 'FAIL', file_pos($parser)
+				.'CRLF linebreak isn\'t supported by sh. Line: "'.limit_len(serialize($_[0])).'"';
+			$parser->YYData->{CRLF_REPORTED} = 1;
+		}
+	}
+	elsif ( $hookname eq "EXTGLOB" ) {
+		tp_result 'FAIL', file_pos($parser)
+					."Extended patterns are not portable.";
+	}
 	else {
 		print "Unhandled hook '$hookname'.\n";
-		#die; # DBG:
 	}
 }
 
@@ -766,51 +762,56 @@ sub OnExpansion {
 	pop @copy;
 	
 	my $checkvar = sub {
+		# This sub is used for parameter expansion such as $VAR and ${VAR}
 		my ($line) = @_;
 		
-		if ( $line =~ /^(BASH_[A-Z]+|DIRSTACK|EUID|FUNCNAME|GROUPS|HOSTFILE|HOSTTYPE|HOSTNAME|MACHTYPE|OLDPWD|OPTERR|OSTYPE|PPID|RANDOM|SHELLOPTS|SHLVL|SECONDS|UID)$/ ) {
-			tp_result 'FAIL', file_pos($parser)."The '\$$line' variable has special meaning in bash and may be not set in sh. It would be better not use it.";
-			return 0;
-		}
-		if ( $line eq 'EUID' ) {
-			tp_result 'FAIL', file_pos($parser)."Use 'id -u' instead of \$EUID.";
-			return 0;
-		}
-		if ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*\[/ ) {
+		if ( $line =~ s/^(\w*)\[/$1/ ) {
 			tp_result 'FAIL', file_pos($parser)."Arrays are not portable.";
-			return 0;
 		}
 		
-		return 1;
+		if ( $line eq 'EUID' ) {
+			tp_result 'FAIL', file_pos($parser)."Use 'id -u' instead of \$EUID.";
+		}
+		elsif ( $line eq '_' ) {
+			tp_result 'FAIL', file_pos($parser)
+				."\$_ is not described in the shell language standard, but it works in both bash and dash.";
+		}
+		elsif ( $line =~ /^(BASH_[A-Z]+|DIRSTACK|EUID|FUNCNAME|GROUPS|HOSTFILE|HOSTTYPE|HOSTNAME|MACHTYPE|OLDPWD|OPTERR|OSTYPE|PPID|RANDOM|SHELLOPTS|SHLVL|SECONDS|UID)$/ ) {
+			tp_result 'FAIL', file_pos($parser)."The '\$$line' variable has special meaning in bash and may be not set in sh. It would be better not use it.";
+		}
 	};
 	
 	if ( $quottype eq '${' ) {
-		my $line = ShParser::unquote(\@copy);
+		my $line = serialize(\@copy);
 		if ( !defined $line ) {
 			$line = $copy[0];
 			if ( ref($line) ne "" ) { return; }
 		}
 		
-		if ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*\// ) {
+		if ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*[#%]/ ) {
+			# OK, do nothing
+		}
+		elsif ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*\// ) {
 			tp_result 'FAIL', file_pos($parser)
 					."'\${$line}': Pattern replacement is a bashism. Use 'sed' instead.";
-			return;
 		}
-		if ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*(:[^\-=\?\+]|\/)/ ) {
-			tp_result 'FAIL', file_pos($parser)."'\${$line}': Unportable parameter expansion.";
-			return;
+		elsif ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*+(:?+[^\-=\?\+\[]|\/)/ ) {
+			tp_result 'FAIL', file_pos($parser)."'\${$line}': Unportable parameter expansion or bad substitution.";
 		}
+		
 		if ( $line =~ /^!/ ) { # Indirect expansion
 			tp_result 'FAIL', file_pos($parser)."'\${$line}' - indirect expansion isn't portable.";
-			return;
 		}
-		&$checkvar($line) or return;
+		
+		if ( $line =~ s/^!?(\w++(\[.*)?+)[:\-=\?\+\/]?.*/$1/ ) {
+			&$checkvar($line);
+		}
 		
 		return;
 	}
 	
 	if ( $quottype eq '$' ) {
-		my $line = ShParser::unquote(\@copy);
+		my $line = serialize(\@copy);
 		return if not defined $line;
 		
 		&$checkvar($line);
@@ -828,12 +829,14 @@ sub OnExpansion {
 			}
 		}
 		
+		my $str = "";
 		foreach my $elem ( @copy ) {
 			next if ref $elem ne "";
-			if ( $elem =~ /(?<!\$){.*}/s ) {
-				tp_result 'WARNING', file_pos($parser)
-						."Bash brace expansions syntax '{a,b,c}' is not portable: '$elem'";
-			}
+			$str .= $elem;
+		}
+		if ( $str =~ m/(?<!\$){[^{]*(,|\.\.)[^{]*}/ ) {
+			tp_result 'FAIL', file_pos($parser)
+						."Bash brace expansion syntax '{a,b,c}' is not portable: '$str'";
 		}
 		
 		return;
@@ -850,12 +853,10 @@ sub OnExpansion {
 			}
 		}
 		
-		if ( !$parser->YYData->{NO_SUBS_CHECK} ) {
-			my $subscript = ShParser::serialize(\@copy);
-			my $hook_info = $parser->YYData->{HOOK_INFO};
-			
-			check_subscript( $hook_info->{FILENAME}, $hook_info->{LINENO}, \$subscript, 'no_subs_check' );
-		}
+		my $subscript = serialize(\@copy);
+		my $hook_info = $parser->YYData->{HOOK_INFO};
+		
+		check_subscript( $hook_info->{FILENAME}, $hook_info->{LINENO}, \$subscript, 'no_subs_check' );
 		
 		return;
 	}
@@ -863,39 +864,53 @@ sub OnExpansion {
 	if ( $quottype eq '`' ) {
 		return if !@copy;
 		
-		if ( !$parser->YYData->{NO_SUBS_CHECK} ) {
-			my $subscript = ShParser::serialize(\@copy);
-			my $hook_info = $parser->YYData->{HOOK_INFO};
-			
-			check_subscript( $hook_info->{FILENAME}, $hook_info->{LINENO}, \$subscript );
-		}
+		my $subscript = serialize(\@copy);
+		my $hook_info = $parser->YYData->{HOOK_INFO};
+		
+		check_subscript( $hook_info->{FILENAME}, $hook_info->{LINENO}, \$subscript );
 		
 		return;
 	}
    
-	if ( $quottype eq '$((' ) {
+	if ( $quottype eq '$((' || $quottype eq '((' ) {
 		
 		return;
 	}
 	
 	if ( $quottype eq '=(' ) {
-		my $text = ShParser::serialize(\@copy);
+		my $text = serialize($struct);
 		
 		tp_result 'FAIL', file_pos($parser)
-				."Arrays are not portable. Near: =(".limit_len($text).")";
+				."Arrays are not portable. Near: '".limit_len($text)."'.";
 		
 		return;
 	}
 	
 	if ( $quottype eq '$[' ) {
-		my $text = ShParser::serialize(\@copy);
+		my $text = serialize($struct);
 		
 		tp_result 'FAIL', file_pos($parser)
-				."\$[...] syntax is not portable. Near \$[".limit_len($text)."].";
+				."\$[...] syntax is not portable. Near '".limit_len($text)."'.";
 		return;
 	}
 	
-	#die "OnExpansion: *$quottype*"; # DBG: Should not happen
+	if ( $quottype eq '[[' ) {
+		my $text = serialize($struct);
+		
+		tp_result 'FAIL', file_pos($parser)
+				."[[...]] syntax is a bashism and not portable. Near '".limit_len($text)."'.";
+		return;
+	}
+	
+	if ( $quottype =~ /^[\?\*\+\@\!]\(/ ) {
+		my $text = serialize($struct);
+		
+		tp_result 'FAIL', file_pos($parser)
+						."Extended patterns are not portable. Near '".limit_len($text)."'";
+		return;
+	}
+	
+	die "OnExpansion: *$quottype*"; # DBG: Should not happen
 }
 
 sub check_subscript {
@@ -904,7 +919,6 @@ sub check_subscript {
 	my $parser = NewShParser();
 
 	$parser->YYData->{LINESHIFT} = $linenum - 1;
-	$no_subs_check and $parser->YYData->{NO_SUBS_CHECK} = 1;
 
 	$parser->Run( $filename, $text_ref ); # Parse it!
 }
@@ -918,21 +932,15 @@ sub OnParserErr {
 	my $line = ( defined $parser->YYData->{LAST_LINE} ? $parser->YYData->{LAST_LINE} : "");
 	$line =~ s/\s+$//;
 	
-	my $what = ( defined $token ? $token->[0] : "End of file" );
+	my $what = ( defined $token ? serialize($token->[1]) : "End of script" ) || "";
 	my $near = $what.( defined $parser->YYData->{LINE} ? $parser->YYData->{LINE} : "" );
 	$near =~ s/\s+$//;
-	
-	#my $type = $parser->YYCurtok;
-	#$type = "" if !defined $type;
 	
 	tp_result 'FAIL', file_pos($parser)
 			."Parsing error at '$near' in line '$line'."
 			." This may happen due to some language extention used."
 			." Please, report this case to lsb-appcheck-support\@linuxfoundation.org."
 			." Don't forget to attach the corresponding part of the script.";
-	
-	#my @expected = $parser->YYExpect();
-	#print_ref \@expected; # DBG:
 }
 
 sub OnMiscErr {
@@ -952,7 +960,7 @@ sub OnSNewline_in_comment {
 		.' Comment line ends with backslash. According to POSIX it means'
 		.' that the comment would be expanded to the next line. Actually, bash (as well as other shells) doesn\'t behave this way.'
 		.' But it would be better to remove backslash from the end of the line or add a space after it.'
-		.' Line: "'.$comment.'"';
+		.' Line: "'.limit_len($comment).'"';
 	
 }
 
