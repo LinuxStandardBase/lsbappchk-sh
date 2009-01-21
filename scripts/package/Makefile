@@ -1,8 +1,8 @@
 # XXX We should play the usual tricks defining stuff here and building
 # XXX a specfile from this info, but not yet: for now keep in sync
 PACKAGE=lsb-appchk-shell
-VERSION=4.0.0
-RELEASE=2
+VERSION=4.0.2
+RELEASE=1
 
 #
 # Derive date string for daily snapshots

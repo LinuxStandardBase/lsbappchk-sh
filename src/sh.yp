@@ -36,60 +36,60 @@ no warnings 'redefine';
 
 # Operators:
 our %operators = qw(
-        &&  AND_IF
-        ||  OR_IF
-        ;;  DSEMI
-        <<  DLESS
-        >>  DGREAT
-        <&  LESSAND
-        >&  GREATAND
-        <>  LESSGREAT
-        <<- DLESSDASH
-        >|  CLOBBER
-        
-        &>  ANDGREAT
-        <<< TLESS
-    );
+		&&  AND_IF
+		||  OR_IF
+		;;  DSEMI
+		<<  DLESS
+		>>  DGREAT
+		<&  LESSAND
+		>&  GREATAND
+		<>  LESSGREAT
+		<<- DLESSDASH
+		>|  CLOBBER
+		
+		&>  ANDGREAT
+		<<< TLESS
+	);
 
 # Reserved words are words that have special meaning to the shell;
 # The following words shall be recognized as reserved words:
 our %reserved = qw(
-        if     If
-        then   Then
-        else   Else
-        elif   Elif
-        fi     Fi
-        do     Do
-        done   Done
-        case   Case
-        esac   Esac
-        while  While
-        until  Until
-        for    For
-        {      Lbrace
-        }      Rbrace
-        !      Bang
-        in     In
-        
-        function Function
-        select   Select
-    );
+		if	 If
+		then   Then
+		else   Else
+		elif   Elif
+		fi	 Fi
+		do	 Do
+		done   Done
+		case   Case
+		esac   Esac
+		while  While
+		until  Until
+		for	For
+		{	  Lbrace
+		}	  Rbrace
+		!	  Bang
+		in	 In
+		
+		function Function
+		select   Select
+	);
 %}
 
 %token error
 
 /* The following are operators. */
 
-%token  AND_IF    OR_IF    DSEMI
-/*      '&&'      '||'     ';;'    */
+%token  AND_IF	OR_IF	DSEMI
+/*	  '&&'	  '||'	 ';;'	*/
 
 
 %token  DLESS  DGREAT  LESSAND  GREATAND  LESSGREAT  DLESSDASH
-/*      '<<'   '>>'    '<&'     '>&'      '<>'       '<<-'   */
+/*	  '<<'   '>>'	'<&'	 '>&'	  '<>'	   '<<-'   */
 
 
 %token  CLOBBER
-/*      '>|'   */
+/*	  '>|'   */
 
 
 %token  ANDGREAT  TLESS
@@ -98,12 +98,12 @@ our %reserved = qw(
 /* The following are the reserved words. */
 
 
-%token  If    Then    Else    Elif    Fi    Do    Done
-/*      'if'  'then'  'else'  'elif'  'fi'  'do'  'done'   */
+%token  If	Then	Else	Elif	Fi	Do	Done
+/*	  'if'  'then'  'else'  'elif'  'fi'  'do'  'done'   */
 
 
-%token  Case    Esac    While    Until    For
-/*      'case'  'esac'  'while'  'until'  'for'   */
+%token  Case	Esac	While	Until	For
+/*	  'case'  'esac'  'while'  'until'  'for'   */
 
 
 /* Bashisms: */
@@ -114,16 +114,18 @@ our %reserved = qw(
    recognized when reserved words are recognized. */
 
 
-%token  Lbrace    Rbrace    Bang
-/*      '{'       '}'       '!'   */
+%token  Lbrace	Rbrace	Bang
+/*	  '{'	   '}'	   '!'   */
 
 
 %token  In
-/*      'in'   */
+/*	  'in'   */
 
 %token  WORD
+%token  ASSIGNMENT_WORD
 %token  NEWLINE
 %token  IO_NUMBER
+%token  DPAR
 
 %%
 # body section
@@ -131,37 +133,40 @@ our %reserved = qw(
 start : compound_list
       | linebreak /* empty script */
       ;
-and_or           :                         pipeline { undef; }
-                 | and_or AND_IF linebreak pipeline { undef; }
-                 | and_or OR_IF  linebreak pipeline { undef; }
+and_or           :                         pipeline       { undef; }
+                 | and_or AND_IF linebreak pipeline       { undef; }
+                 | and_or OR_IF  linebreak pipeline       { undef; }
                  ;
-pipeline         :      pipe_sequence               { undef; }
-                 | Bang pipe_sequence               { undef; }
+pipeline         :      pipe_sequence                     { undef; }
+                 | Bang pipe_sequence                     { undef; }
                  ;
-pipe_sequence    :                             command  { undef; }
-                 | pipe_sequence '|' linebreak command  { undef; }
+pipe_sequence    :                             command    { undef; }
+                 | pipe_sequence '|' linebreak command    { undef; }
                  ;
-command          : simple_command                       { undef; }
-                 | compound_command                     { undef; }
-                 | compound_command redirect_list       { undef; }
-                 | function_definition                  { undef; }
-                 | dbracket                             { undef; } /* Bashism */
+command          : simple_command                         { undef; }
+                 | compound_command                       { undef; }
+                 | compound_command redirect_list         { undef; }
+                 | function_definition                    { undef; }
                  ;
-compound_command : brace_group                          { undef; }
-                 | subshell                             { undef; }
-                 | for_clause                           { undef; }
-                 | case_clause                          { undef; }
-                 | if_clause                            { undef; }
-                 | while_clause                         { undef; }
-                 | until_clause                         { undef; }
-                 | select_clause       /* Bashism */    { undef; }
+compound_command : brace_group                            { undef; }
+                 | DPAR     { Hooked($_[0], 'DPAR', $_[1]); undef; }  /* Bashism */
+                 | subshell                               { undef; }
+                 | for_clause                             { undef; }
+                 | case_clause                            { undef; }
+                 | if_clause                              { undef; }
+                 | while_clause                           { undef; }
+                 | until_clause                           { undef; }
+                 | select_clause                          { undef; } /* Bashism */
                  ;
-subshell         : '(' compound_list ')'                { undef; }
+subshell         : '(' compound_list ')'                  { undef; }
                  ;
-compound_list    :              term                    { undef; }
-                 | newline_list term                    { undef; }
-                 |              term separator          { undef; }
-                 | newline_list term separator          { undef; }
+compound_list    :              term                      { undef; }
+                 | newline_list term                      { undef; }
+                 |              term separator            { undef; }
+                 | newline_list term separator            { undef; }
+                 ;
+compound_list_s  :              term separator            { undef; }
+                 | newline_list term separator            { undef; }
                  ;
 term             : term  separator and_or                 { undef; }
                  |                 and_or                 { undef; }
@@ -171,68 +176,60 @@ select_clause    : Select name linebreak                            do_group { H
                  | Select name linebreak in wordlist sequential_sep do_group { Hooked($_[0], 'SELECT', $_[1]); undef; }  /* Bashism */
                  ;
 for_clause       : For name linebreak                            do_group   { undef; }
-                 | For name               sequential_sep do_group           { Hooked($_[0], 'FOR_VARSEMI', $_[2]); undef; }  /* Bashism */
+                 | For name                       sequential_sep do_group   { Hooked($_[0], 'FOR_VARSEMI', $_[2]); undef; }  /* Bashism */
                  | For name linebreak in          sequential_sep do_group   { undef; }
                  | For name linebreak in wordlist sequential_sep do_group   { undef; }
-                 | For '((' expression '))' sequential_sep? do_group           { Hooked($_[0], 'LOOP_DPAR', $_[1]); undef; }  /* Bashism */
+                 | For DPAR                       sequential_sep do_group   { Hooked($_[0], 'LOOP_DPAR', [$_[1][0],['for']]); undef; }  /* Bashism */
+                 | For DPAR                                      do_group   { Hooked($_[0], 'LOOP_DPAR', [$_[1][0],['for']]); undef; }  /* Bashism */
                  ;
 name             : NAME { return $_[1]; }
                  ;
 in               : In   { return $_[1]; }
                  ;
-wordlist         : wordlist WORD                                { undef; }
-                 |          WORD                                { undef; }
+wordlist         : wordlist WORD                          { undef; }
+                 |          WORD                          { undef; }
                  ;
-case_clause      : Case WORD linebreak in linebreak case_list    Esac       { undef; }
-                 | Case WORD linebreak in linebreak case_list_ns Esac       { undef; }
-                 | Case WORD linebreak in linebreak              Esac       { undef; }
+case_clause      : Case WORD linebreak in linebreak case_list              Esac   { undef; }
+                 | Case WORD linebreak in linebreak case_list_ns           Esac   { undef; }
+                 | Case WORD linebreak in linebreak                        Esac   { undef; }
                  ;
-case_list_ns     : case_list case_item_ns                       { undef; }
-                 |           case_item_ns                       { undef; }
+case_list_ns     : case_list case_item_ns                 { undef; }
+                 |           case_item_ns                 { undef; }
                  ;
-case_list        : case_list case_item                          { undef; }
-                 |           case_item                          { undef; }
+case_list        : case_list case_item                    { undef; }
+                 |           case_item                    { undef; }
                  ;
-case_item_ns     :     pattern_list ')'               linebreak      { undef; }
-                 |     pattern_list ')' compound_list linebreak      { undef; }
-                 | '(' pattern_list ')'               linebreak      { undef; }
-                 | '(' pattern_list ')' compound_list linebreak      { undef; }
+case_item_ns     :     pattern_list ')' linebreak      { undef; }
+                 |     pattern_list ')' compound_list_s   { undef; }
+                 | '(' pattern_list ')' linebreak      { undef; }
+                 | '(' pattern_list ')' compound_list_s   { undef; }
                  ;
-case_item        :     pattern_list ')' linebreak     DSEMI linebreak        { undef; }
-                 |     pattern_list ')' compound_list DSEMI linebreak        { undef; }
-                 | '(' pattern_list ')' linebreak     DSEMI linebreak        { undef; }
-                 | '(' pattern_list ')' compound_list DSEMI linebreak        { undef; }
+case_item        :     pattern_list ')' linebreak     DSEMI linebreak    { undef; }
+                 |     pattern_list ')' compound_list DSEMI linebreak    { undef; }
+                 | '(' pattern_list ')' linebreak     DSEMI linebreak    { undef; }
+                 | '(' pattern_list ')' compound_list DSEMI linebreak    { undef; }
                  ;
-pattern          : WORD                            { undef; }
-                 | '(' pattern_list ')'            { undef; } # TODO: bashism?
-                 | pattern pattern                 { undef; }
+pattern          : WORD                                     { undef; }
+                 | pattern? '(' pattern_list ')' pattern?   { Hooked($_[0], 'EXTGLOB', $_[2], @_); undef; } /* Bashism */
                  ;
 pattern_list     : pattern                         { undef; }
-                 | pattern '|' pattern             { undef; }
+                 | pattern_list '|' pattern        { undef; }
                  ;
-if_clause        : If compound_list Then compound_list else_part Fi     { undef; }
-                 | If compound_list Then compound_list           Fi     { undef; }
-                 | If dparenthesis sequential_sep Then compound_list else_part Fi     { undef; }
-                 | If dparenthesis sequential_sep Then compound_list           Fi     { undef; }
+if_clause        : If compound_list_s Then compound_list_s else_part Fi    { undef; }
+                 | If compound_list_s Then compound_list_s           Fi    { undef; }
                  ;
-else_part        : Elif compound_list Then compound_list                { undef; }
-                 | Elif compound_list Then compound_list else_part      { undef; }
-                 | Else compound_list                                   { undef; }
-                 ;
-dbracket         : '[[' expression ']]' { Hooked($_[0], 'DBRACKET', $_[1], @_); undef; } /* Bashism */
-                 ;
-dparenthesis     : '((' expression '))' { Hooked($_[0], 'DPAR', $_[1]); undef; }  /* Bashism */
+else_part        : Elif compound_list_s Then compound_list_s              { undef; }
+                 | Elif compound_list_s Then compound_list_s else_part    { undef; }
+                 | Else compound_list_s                                                { undef; }
                  ;
 expression       :            WORD
                  |            linebreak
                  | expression WORD
                  | expression linebreak
                  ;
-while_clause     : While compound_list do_group          { undef; }
-                 | While dparenthesis sequential_sep do_group           { undef; }
+while_clause     : While compound_list_s do_group          { undef; }
                  ;
-until_clause     : Until compound_list do_group          { undef; }
-                 | Until dparenthesis sequential_sep do_group          { undef; }
+until_clause     : Until compound_list_s do_group          { undef; }
                  ;
 function_definition : Function fname '(' ')' linebreak function_body { Hooked($_[0], 'BAD_FUNC_DEF', $_[2], @_); Hooked($_[0], 'FUNCTION', $_[2], @_); undef } /* Bashism */
                     | Function fname linebreak function_body { Hooked($_[0], 'BAD_FUNC_DEF', $_[2], @_); Hooked($_[0], 'FUNCTION', $_[2], @_); undef } /* Bashism */
@@ -245,7 +242,7 @@ fname            : NAME     { return $_[1]; }
                  ;
 brace_group      : Lbrace compound_list Rbrace              { undef; }
                  ;
-do_group         : Do compound_list Done                    { undef; }
+do_group         : Do compound_list_s Done                    { undef; }
                  ;
 simple_command   : cmd_prefix cmd_word cmd_suffix   { OnCommand($_[0], $_[2], $_[3]); undef }
                  | cmd_prefix cmd_word              { OnCommand($_[0], $_[2]); undef }
@@ -264,8 +261,8 @@ cmd_suffix       :            io_redirect   { my $f=AST(@_); $f->{linear}=[]; re
                  | cmd_suffix io_redirect   { my $f=AST(@_); $f->{linear}=$_[1]->{linear}; return  $f; }
                  |            filename      { my $f=AST(@_); $f->{linear}=[]; return $f; }
                  | cmd_suffix filename      { my $f=AST(@_); $f->{linear}=$_[1]->{linear}; return  $f; }
-                 |            WORD          { my $f=AST(@_); $f->{linear}=[$_[1]->[2]]; return $f; }
-                 | cmd_suffix WORD          { my $f=AST(@_); $f->{linear}=[@{$_[1]->{linear}}, $_[2]->[2]]; return $f; }
+                 |            WORD          { my $f=AST(@_); $f->{linear}=[$_[1]->[1]]; return $f; }
+                 | cmd_suffix WORD          { my $f=AST(@_); $f->{linear}=[@{$_[1]->{linear}}, $_[2]->[1]]; return $f; }
                  ;
 redirect_list    :               io_redirect        { undef; }
                  | redirect_list io_redirect        { undef; }
@@ -311,16 +308,8 @@ sequential_sep   : ';' linebreak                { undef; }
                  ;
 NAME : WORD {
         my $token = $_[1];
-        if ( !is_name($token->[0]) ) {
-            $_[0]->call_hook($token->[1], 'BADNAME', $token->[0]);
-        }
-        return $token;
-    }
-    ;
-ASSIGNMENT_WORD : WORD {
-        my $token = $_[1];
-        if ( !is_assignment($token->[0]) ) {
-            $_[0]->call_hook($token->[1], 'BAD_ASSIGNMENT', $token->[0]);
+        if ( !is_name(serialize($token->[1])) ) {
+            $_[0]->call_hook($token->[0], 'BADNAME', $token->[1]);
         }
         return $token;
     }
@@ -330,128 +319,132 @@ ASSIGNMENT_WORD : WORD {
 # Tail section
 
 sub AST {
-    my $parser = shift;
-    return $parser->YYBuildAST(@_);
+	my $parser = shift;
+	return $parser->YYBuildAST(@_);
 }
 
 sub call_hook {
-    my $self = shift;
-    my $linenum = shift;
-    my $hook_name = shift;
-    
-    my $hook_func = $self->YYData->{HOOKS}{$hook_name};
-    if ( !defined $hook_func ) {
-        #die "Unknown hook: $hook_name"; # DBG:
-        return undef;
-    }
+	my $self = shift;
+	my $linenum = shift;
+	my $hook_name = shift;
+	
+	my $hook_func = $self->YYData->{HOOKS}{$hook_name};
+	if ( !defined $hook_func ) {
+		return undef;
+	}
 
-    if ( defined $self->YYData->{LINESHIFT} ) {
-        $linenum += $self->YYData->{LINESHIFT}; # For parsing of subscripts
-    }
-    
-    $self->YYData->{HOOK_INFO}{FILENAME} = $self->YYData->{FILENAME};
-    $self->YYData->{HOOK_INFO}{LINENO} = $linenum;
-    
-    return &$hook_func($self, $hook_name, @_);
+	if ( defined $self->YYData->{LINESHIFT} ) {
+		$linenum += $self->YYData->{LINESHIFT}; # For parsing of subscripts
+	}
+	
+	$self->YYData->{HOOK_INFO}{FILENAME} = $self->YYData->{FILENAME};
+	$self->YYData->{HOOK_INFO}{LINENO} = $linenum;
+	
+	# $linenum may be undefined in case of syntax error
+	
+	return &$hook_func($self, $hook_name, @_);
 }
 
 sub OnCommand {
-    my $parser = shift;
-    
-    my ($cmdname, $linenum) = @{ $_[0] };
-    my @params = ();
-    if ( defined $_[1] ) {
-        if ( defined $_[1]->{'linear'} ) {
-            @params = @{$_[1]->{'linear'}};
-        }
-    }
-    
-    $parser->call_hook($linenum, 'COMMAND', $_[0], @params);
-    
-    return $parser->YYBuildAST(@_);
+	my $parser = shift;
+	
+	my ($linenum) = @{ $_[0] };
+	my @params = ();
+	if ( defined $_[1] ) {
+		if ( defined $_[1]->{'linear'} ) {
+			@params = @{$_[1]->{'linear'}};
+		}
+	}
+	$parser->call_hook($linenum, 'COMMAND', $_[0], @params);
+	
+	return $parser->YYBuildAST(@_);
 }
 
 sub Hooked {
-    my $parser = shift;
-    my $hook = shift;
-    my $tok = shift;
-    
-    my ($word, $linenum) = @$tok;
-    
-    $parser->call_hook($linenum, $hook, $word);
-    
-    return $parser->YYBuildAST(@_);
+	my $parser = shift;
+	my $hook = shift;
+	my $tok = shift;
+	
+	my ($linenum, $struct) = @$tok;
+	
+	$parser->call_hook($linenum, $hook, $struct);
+	
+	return $parser->YYBuildAST(@_);
 }
 
 #-----------------------------------------------------------------------
 
 sub limit_len {
-    my ($line) = @_;
-    
-    if ( length($line) > 120 ) {
-        return substr($line, 0,100);
-    }
-    
-    $line =~ s/\s*\n$//s;
-    
-    return $line;
+	my ($line) = @_;
+	
+	$line =~ s/\s*[\r\n].*//s; # leave only the first line
+	
+	if ( length($line) > 120 ) {
+		return substr($line, 0,100);
+	}
+	
+	return $line;
 }
 
 sub serialize {
-    my ($arr) = @_;
-    
-    my $res = "";
-    
-    foreach my $elem ( @$arr ) {
-        my $ref = ref $elem;
-        
-        if ( $ref eq "" ) {
-            $res .= $elem;
-        }
-        elsif ( $ref eq "ARRAY" ) {
-            $res .= serialize($elem);
-        }
-    }
-    return $res;
+	my ($arr) = @_;
+	
+	return $arr if ref($arr) eq '';
+	
+	my $res = "";
+	
+	foreach my $elem ( @$arr ) {
+		my $ref = ref $elem;
+		
+		if ( $ref eq "" ) {
+			$res .= $elem;
+		}
+		elsif ( $ref eq "ARRAY" ) {
+			$res .= serialize($elem);
+		}
+	}
+	return $res;
 }
 
 sub unquote {
-    my ($arr) = @_;
-    
-    my $res = "";
-    
-    foreach my $elem ( @$arr ) {
-        my $ref = ref $elem;
-        
-        if ( $ref eq "" ) {
-            $res .= $elem;
-        }
-        elsif ( $ref eq "ARRAY" ) {
-            # make a copy
-            my $copy = [@$elem];
-            
-            # remove quotes
-            my $q = shift @$copy;
-            pop @$copy;
-            
-            if ( $q eq "" || $q eq "'" || $q eq '"' ) {
-                my $unquoted = unquote($copy);
-                if ( not defined $unquoted ) {
-                    return undef;
-                }
-                
-                $res .= $unquoted;
-            }
-            elsif ( $q eq '\\' ) {
-                $res .= $copy->[0];
-            }
-            else {
-                return undef;
-            }
-        }
-    }
-    
-    return $res;
+	my ($arr) = @_;
+	
+	( ref($arr) eq 'ARRAY' ) or die;
+	
+	my $res = "";
+	
+	foreach my $elem ( @$arr ) {
+		my $ref = ref $elem;
+		
+		if ( $ref eq "" ) {
+			$res .= $elem;
+		}
+		elsif ( $ref eq "ARRAY" ) {
+			# make a copy
+			my $copy = [@$elem];
+			
+			# remove quotes
+			my $q = shift @$copy;
+			pop @$copy;
+			
+			if ( $q eq "" || $q eq "'" || $q eq '"' ) {
+				my $unquoted = unquote($copy);
+				if ( not defined $unquoted ) {
+					return undef;
+				}
+				
+				$res .= $unquoted;
+			}
+			elsif ( $q eq '\\' ) {
+				$res .= $copy->[0];
+			}
+			else {
+				return undef;
+			}
+		}
+	}
+	
+	return $res;
 }
 
 ## The shell shall read its input in terms of lines from a file,
@@ -462,724 +455,1120 @@ sub unquote {
 ## ordinary token recognition and processing of here-documents.
 
 sub read_line_sub {
-    my ($self) = @_;
-    
-    my $s = "";
-    if ( $self->YYData->{INPUT} =~ s/(\G.*(\n|\z))// ) {
-        $s = $1;
-    }
-    return undef if $s eq "";
-    
-    $self->YYData->{LINENO}++;
-    
-    return $s;
+	my ($self) = @_;
+	
+	my $s = "";
+	if ( $self->YYData->{INPUT} =~ s/(\G.*(\n|\z))// ) {
+		$s = $1;
+	}
+	return undef if $s eq "";
+	
+	$self->YYData->{LINENO}++;
+	
+	return $s;
 }
 
 sub read_line {
-    my ($self) = @_;
-    
-    # Read a new line
-    my $line = $self->read_line_sub();
-
-    $self->YYData->{LAST_LINE} = $line;
-    
-    return $line;
+	my ($self) = @_;
+	
+	# Read a new line
+	my $line = $self->read_line_sub();
+	
+	if ( $line && $line =~ m/\r\n$/ ) {
+		$self->call_hook($self->YYData->{LINENO}, "CRLF", $line);
+		$line =~ s/\r//g;
+	}
+	
+	$self->YYData->{LAST_LINE} = $line;
+	
+	return $line;
 }
 
 my $expect_heredoc = 0;
 
-my @operator_lexems = qw( 
-        &&  ||  ;;  <<  >>  <&  >&  <>  <<-  >|  \(  \)
-        \(\(  \)\)  &>  <<<  <\(  >\(
-    );
+my @operator_lexems = qw!
+		&&  ||  ;;  (  )
+		<<  >>  <<-  <<<  <&  >&  &>  <>  >|  <(  >(
+	!;
 
 my $re_operators = "(".(join "|", map { my $a=$_; $a=~s/([\(\)\[\]\|\\\/\+\?\.\*])/\\$1/g; $a } @operator_lexems).")";
 
 my %op_parts = ();
 foreach my $op ( @operator_lexems ) {
-    while ( $op ne "" ) {
-        $op_parts{$op} = 1;
-        $op =~ s/.\z//s;
-    }
+	while ( $op ne "" ) {
+		$op_parts{$op} = 1;
+		$op =~ s/.\z//s;
+	}
 }
 
 my $re_op_parts = "(".(join "|", map { my $a=$_; $a=~s/([\(\)\[\]\|\\\/\+\?\.\*])/\\$1/g; $a } keys %op_parts).")";
 
 
 sub read_token {
-    my ($self, $line, $in_quote) = @_;
-    my $token = "";
-    
-    if ( !defined $line ) {
-        $line = \$self->YYData->{LINE};
-    }
-    
-    # The shell shall read sufficient input to determine the end of the unit
-    # to be expanded (as explained in the cited sections).
-    # While processing the characters, if instances of expansions or quoting are found
-    # nested within the substitution, the shell shall recursively process them in the manner
-    # specified for the construct that is found. The characters found from the beginning
-    # of the substitution to its end, allowing for any recursion necessary to recognize
-    # embedded constructs, shall be included unmodified in the result token, including
-    # any embedded or enclosing substitution operators or quotes. The token shall not be
-    # delimited by the end of the substitution.
-
-    my $word = "";
-    local *shift_char = sub {
-        if ( $$line =~ s/^(.)//s ) { # read one char
-            $token .= $1;
-            return $1;
-        }
-        return '';
-    };
-    
-    my $quotmode = ($in_quote or '');
-    my @quotstack = ();
-    
-    my $arithm_p_count = 0;
-    
-    my $result = [];
-    my @resultstack = ();
-    
-    local *set_quotmode = sub {
-        my ($newquotmode) = @_;
-        
-        push @quotstack, $quotmode;
-        $quotmode = $newquotmode;
-        
-        if ( $word ne "" ) {
-            push @$result, $word;
-            $word = "";
-        }
-        push @resultstack, $result;
-        $result = [$newquotmode, ];
-    };
-    
-    local *off_quotmode = sub {
-        my ($close_quotmode) = @_;
-        
-        my $old_quotmode = $quotmode;
-        $quotmode = pop @quotstack;
-        if ( !defined $quotmode ) {
-            print STDERR "Quotmode stack has exhausted. Token: '$token'. Line: '$$line'\n";
-        }
-        
-        if ( $word ne "" ) {
-            push @$result, $word;
-            $word = "";
-        }
-        
-        push @$result, $close_quotmode;
-        
-        if ( $old_quotmode eq '$' && @$result == 2 ) { # empty $ param
-            $result = '$';
-        } else {
-            if ( $old_quotmode ne '\\' && $old_quotmode ne '"' && $old_quotmode ne "'" ) {
-                $self->call_hook($self->YYData->{LINENO}, "EXPANSION", $result);
-            }
-        }
-        
-        my $prev_result = pop @resultstack;
-        if ( !defined $prev_result ) {
-            print STDERR "Quotresult stack has exhausted. Token: '$token'. Line: '$$line'\n";
-        }
-        push @$prev_result, $result;
-        $result = $prev_result;
-    };
-    
-    while ( 1 ) {
-        if ( !defined $$line || $$line eq "" ) {
-            if ( !$self->YYData->{NO_READLINE} ) {
-                $$line = $self->read_line();
-            }
-            
-            # If the end of input is recognized, the current token shall be delimited.
-            # If there is no current token, the end-of-input indicator shall be returned
-            # as the token.
-            if ( !defined $$line || $$line eq "" ) {
-                last; # delimit
-            }
-        }
-        if ( !defined $quotmode ) {
-            last;
-        }
-        
-        #print "*$quotmode* $$line\n" if $line; # DBG:
-        
-        my $nc = "";
-        if ( $$line =~ /^(.)/s ) { # read one char
-            $nc = $1;
-            if ( $nc eq '\\' ) {
-                $$line =~ s/^\\\n//s and redo;
-            }
-        }
-        
-        # A backslash that is not quoted shall preserve the literal value
-        # of the following character.
-        if ( $quotmode eq '\\' ) {
-            $word .= shift_char();
-            off_quotmode("");
-            next;
-        }
-        
-        if ( $quotmode eq '' || $quotmode eq '$(' ) {
-            # If the previous character was used as part of an operator and the current character
-            # is not quoted and can be used with the current characters to form an operator,
-            # it shall be used as part of that (operator) token.
-            if ( $token =~ /^$re_op_parts\z/s ) {
-                if ( ($token.$nc) =~ /^$re_operators\z/s ) {
-                    $word .= shift_char();
-                    next;
-                }
-                else {
-                    # If the previous character was used as part of an operator and the current
-                    # character cannot be used with the current characters to form an operator,
-                    # the operator containing the previous character shall be delimited.
-                    last;
-                }
-            }
-            
-            # If the current character is not quoted and can be used as the first
-            # character of a new operator, the current token (if any) shall be delimited.
-            # The current character shall be used as the beginning of the next (operator) token.
-            if ( $nc =~ /^$re_op_parts\z/s && $token ne '' ) {
-                last; # delimit the token
-            }
-            
-            # If the current character is an unquoted <newline>, the current token shall be delimited.
-            if ( $nc =~ /[\n]/s ) {
-                if ( $token ne '' ) {
-                    last; # delimit the token
-                } else {
-                    $word .= shift_char();
-                    last; # emit newline
-                }
-            }
-            
-            # If the current character is an unquoted <blank>, any token containing
-            # the previous character is delimited and the current character shall be discarded.
-            if ( $nc =~ /[ \t\r]/s ) {
-                if ( $token ne '' ) {
-                    last; # delimit the token
-                } else {
-                    $$line =~ s/^([ \t\r]+)//s; # discard the current character
-                    if ( $in_quote && $in_quote eq '$(' ) {
-                        $token = $1;
-                        last;
-                    }
-                    next; # continue
-                }
-            }
-        }
-        
-        if ( $nc eq '\\' ) {
-            if ( $quotmode eq '' || $quotmode eq '$(' || $quotmode eq '=(' || $quotmode eq '${' ) {
-                shift_char();
-                set_quotmode($nc);
-                next;
-            }
-            elsif ( $quotmode eq '"' ) {
-                # Enclosing characters in double-quotes ( "" ) shall preserve the literal value
-                # of all characters within the double-quotes, with the exception of the characters
-                # dollar sign ($), backquote (`), and backslash (\), as follows:
-                # ...
-                # The backslash shall retain its special meaning as an 
-                # escape character (see Escape Character (Backslash)) only when followed
-                # by one of the following characters when considered special:  $   `   "   \
-                if ( $$line =~ /^\\[\$\`"\\]/ ) {
-                    shift_char();
-                    set_quotmode($nc);
-                    next;
-                }
-            }
-            elsif ( $quotmode eq '<<' ) {
-                # ...the backslash in the input behaves as the backslash inside double-quotes
-                # (see Double-Quotes). However, the double-quote character ( " ) shall not be
-                # treated specially within a here-document.
-                if ( $$line =~ /^\\[\$\`\\]/ ) {
-                    shift_char();
-                    set_quotmode($nc);
-                    next;
-                }
-            }
-            elsif ( $quotmode eq '`' ) {
-                # Within the backquoted style of command substitution,
-                # backslash shall retain its literal meaning, except when followed by:
-                # '$', '`', or '\' (dollar sign, backquote, backslash).
-                if ( $$line =~ /^\\[\$\`\\]/ ) {
-                    shift_char();
-                    set_quotmode($nc);
-                    next;
-                }
-            }
-        }
-        
-        if ( $quotmode eq '$' ) {
-            if ( $word =~ /^\d*\z/ && $nc =~ /\d/ ) { # numeric
-                $word .= shift_char();
-                next;
-            }
-            if ( $word eq "" && $nc =~ /[@*#?\-\$!0]/ ) { # special parameter
-                $word .= shift_char();
-                next;
-            }
-            if ( $word eq "" && $nc =~ /[A-Za-z_]/ ) { # a valid first character of a variable name
-                $word .= shift_char();
-                next;
-            }
-            if ( $word =~ /^[A-Za-z_][A-Za-z_0-9]*/ && $nc =~ /[A-Za-z_0-9]/ ) { # variable name
-                $word .= shift_char();
-                next;
-            }
-            # If an unquoted '$' is followed by a character that is either not numeric,
-            # the name of one of the special parameters (see Special Parameters),
-            # a valid first character of a variable name, a left curly brace ( '{' ) or
-            # a left parenthesis, the result is unspecified.
-            if ( $word eq "" ) {
-                my $prev_quotmode = '';
-                if ( @quotstack ) {
-                    $prev_quotmode = $quotstack[$#quotstack];
-                }
-                if ( $nc ne $prev_quotmode ) {
-                    $self->call_hook( $self->YYData->{LINENO}, "SDOLLAR", $$line, $prev_quotmode );
-                }
-            }
-            
-            off_quotmode("");
-            next;
-        }
-        
-        #if ( $quotmode eq '$(' && $nc eq ')' ) {
-            #off_quotmode($nc);
-            #shift_char();
-            #next;
-        #}
-        
-        if ( $quotmode eq '$((' ) {
-            if ( $nc eq '(' ) {
-                $arithm_p_count++;
-                $word .= shift_char();
-                next;
-            }
-            if ( $nc eq ')' ) {
-                if ( $arithm_p_count > 0 ) {
-                    $arithm_p_count--;
-                    $word .= shift_char();
-                    next;
-                }
-                if ( $$line =~ s/^(\)\))// ) {
-                    $token .= $1;
-                    off_quotmode($1);
-                    next;
-                }
-            }
-        }
-        if ( $quotmode eq '${' && $nc eq '}' ) {
-            off_quotmode($nc);
-            shift_char();
-            next;
-        }
-        if ( $quotmode eq '$[' && $nc eq ']' ) {
-            off_quotmode($nc);
-            shift_char();
-            next;
-        }
-        if ( $quotmode eq '`' && $nc eq '`' ) {
-            off_quotmode($nc);
-            shift_char();
-            next;
-        }
-        if ( $quotmode eq '=(' && $nc eq ')' ) {
-            off_quotmode($nc);
-            shift_char();
-            next;
-        }
-        
-        # If the current character is an unquoted '$' or '`', the shell shall identify
-        # the start of any candidates for parameter expansion ( Parameter Expansion),
-        # command substitution ( Command Substitution), or arithmetic expansion
-        # ( Arithmetic Expansion) from their introductory unquoted character sequences:
-        # '$' or '${', '$(' or '`', and '$((', respectively.
-        #
-        # Enclosing characters in double-quotes ( "" ) shall preserve the literal value
-        # of all characters within the double-quotes, with the exception of the characters
-        # dollar sign ($), backquote (`), and backslash (\).
-        if ( $nc =~ /[\$\`]/ && $quotmode ne "'"  && $quotmode ne "`" ) {
-            if ( $$line =~ s/^(\$\(\(|\$\(|\${|\$\[|\`|\$)// ) {
-                $token .= $1;
-                set_quotmode($1);
-                if ( $1 eq '$(' ) {
-                    my $par_stack = 1;
-                    while ( 1 ) {
-                        # The input characters within the quoted string that are also enclosed
-                        # between "$(" and the matching ')' shall not be affected by the
-                        # double-quotes, but rather shall define that command whose output
-                        # replaces the "$(...)" when the word is expanded. The tokenizing
-                        # rules in Token Recognition , not including the alias substitutions
-                        # in Alias Substitution , shall be applied recursively to find
-                        # the matching ')'.
-                        my ($token1) = $self->read_token($line, '$(');
-                        #print "~~# $token1\n";
-                        if ( $token1 eq '))' ) {
-                            $token1 = ')';
-                            $$line = ')'.$$line;
-                        }
-                        $token .= $token1;
-                        if ( $token1 eq '(' || $token1 eq '<(' || $token1 eq '>(' ) {
-                            $par_stack++;
-                        }
-                        elsif ( $token1 eq ')' ) {
-                            $par_stack--;
-                            if ( $par_stack == 0 ) {
-                                off_quotmode($token1);
-                                last;
-                            }
-                        }
-                        elsif ( $token1 eq '' ) {
-                            last;
-                        }
-                        $word .= $token1;
-                    }
-                } else {
-                    $arithm_p_count = 0 if $1 eq '$((';
-                }
-                next;
-            }
-        }
-        
-        if ( $nc =~ /['"]/ ) { # ' or  "
-            if ( $quotmode eq $nc ) { # the end of quotation.
-                off_quotmode($nc);
-                shift_char();
-                next;
-            }
-            if ( $quotmode eq "" || $quotmode eq '$(' || $quotmode eq '=(' || $quotmode eq '${' ) {
-                # If the current character is backslash, single-quote, or double-quote
-                # and it is not quoted, it shall affect quoting for subsequent characters
-                # up to the end of the quoted text.
-                shift_char();
-                set_quotmode($nc);
-                next;
-            }
-        }
-        
-        # =( Dirty hack
-        if ( $nc eq '=' && ($quotmode eq '' || $quotmode eq '$(') && $$line =~ /^=\(/ ) {
-            shift_char();
-            shift_char();
-            set_quotmode('=(');
-            next;
-        }
-        
-        if ( $quotmode eq '' || $quotmode eq '$(' ) {
-            # If the previous character was part of a word, the current character
-            # shall be appended to that word.
-            if ( $token ne '' ) {
-                $word .= shift_char();
-                next;
-            }
-            
-            # If the current character is a '#', it and all subsequent characters up to,
-            # but excluding, the next <newline> shall be discarded as a comment.
-            # The <newline> that ends the line is not considered part of the comment.
-            if ( $nc eq '#' ) { # [The token is '' due to the previous rule.]
-                $$line =~ s/^(#[^\n]*)//s; # discard characters up to <newline>
-                my $comment = $1;
-                if ( $comment =~ /\\$/ ) { # Comment ends with \<newline>
-                    $self->call_hook($self->YYData->{LINENO}, "S_NEWLINE_IN_COMMENT", $comment);
-                }
-                next;
-            }
-        }
-        
-        # TODO: 3.5.1 Brace Expansion a{b,c,d}e in "" quotmode
-        
-        # The current character is used as the start of a new word.
-        $word .= shift_char();
-    }
-    
-    while ( @quotstack ) {
-        unless ( $quotmode eq '\\' || $quotmode eq '$' ) {
-            $self->_Error("Unclosed quote *$quotmode*: '".limit_len($token)."'");
-        }
-        off_quotmode("");
-    }
-    
-    if ( $word ne "" ) {
-        push @$result, $word;
-    }
-    
-    # The token was delimited!
-    
-    if ( $expect_heredoc ) { # should return a HEREDOC word
-        # Quote removal shall be applied to the word to determine the delimiter
-        # that is used to find the end of the here-document that begins after the next <newline>.
-        my $delimiter = unquote($result);
-        if ( !defined $delimiter || !$delimiter ) {
-            $self->_Error("Failed to unquote HEREDOC delimiter: '".limit_len($token)."'");
-        }
-        my $word = "";
-        while ( 1 ) {
-            my $s = $self->read_line();
-            if ( !defined $s ) {
-                $self->_Error("EOF, but expected end of HEREDOC ($delimiter)");
-                return '';
-            }
-            if ( $expect_heredoc == 2 ) {
-                # If the redirection symbol is "<<-", all leading <tab>s shall be stripped
-                # from input lines and the line containing the trailing delimiter.
-                $s =~ s/^\t+//s;
-            }
-            $word .= $s;
-            $s =~ s/[\x0d\n]$//sg;
-            last if $s eq $delimiter;
-        }
-        $expect_heredoc = 0;
-        
-        # If no characters in word are quoted, all lines of the here-document shall be expanded
-        # for parameter expansion, command substitution, and arithmetic expansion.
-        if ( $delimiter eq $token ) {
-            my $oldmode = $self->YYData->{NO_READLINE};
-            $self->YYData->{NO_READLINE} = 1;
-            ($token, $result) = $self->read_token(\$word, '<<'); # parse the HEREDOC text
-            $self->YYData->{NO_READLINE} = $oldmode;
-            return ($token, $result);
-        } else {
-            return $word, [$word];
-        }
-    }
-
-    if ( !$in_quote ) {        
-        if ( $token eq '<<' ) { # HEREDOC follows
-            $expect_heredoc = 1;
-        }
-        elsif ( $token eq '<<-' ) {
-            $expect_heredoc = 2;
-        }
-    }
-    
-    return ($token, $result);
+	my ($self, $line, $in_quote) = @_;
+	
+	if ( !defined $line ) {
+		$line = \$self->YYData->{LINE};
+	}
+	
+	# The shell shall read sufficient input to determine the end of the unit
+	# to be expanded (as explained in the cited sections).
+	# While processing the characters, if instances of expansions or quoting are found
+	# nested within the substitution, the shell shall recursively process them in the manner
+	# specified for the construct that is found. The characters found from the beginning
+	# of the substitution to its end, allowing for any recursion necessary to recognize
+	# embedded constructs, shall be included unmodified in the result token, including
+	# any embedded or enclosing substitution operators or quotes. The token shall not be
+	# delimited by the end of the substitution.
+	
+	my $token = ""; # The current token
+	my $part = ""; # A part of the current token
+	
+	local *discard_char = sub {
+		if ( $$line =~ s/^(.)//s ) { # read one char
+			return $1;
+		}
+		return '';
+	};
+	local *shift_char = sub {
+		if ( $$line =~ s/^(.)//s ) { # read one char
+			$part .= $1;
+			$token .= $1;
+			return $1;
+		}
+		return '';
+	};
+	
+	# Use stack as a common aproach to avoid recursion.
+	my @stack = ();
+	
+	# Current mode: '\\', '', '$(', '$((', '((', '[[', '?(', '${', '$[', '=(', '`', '$', "'", '"', '<<'
+	my $quotmode = ($in_quote or '');
+	
+	my $result = [];
+	
+	my $par_count = 0; # count parentheses
+	my $no_exp_hook = 0; # Don't call expansion hook to avoid double error messages.
+	
+	# Store the context, change the mode
+	local *set_quotmode = sub {
+		my ($newquotmode, $qq) = @_;
+		if ( !defined $qq ) { $qq = $newquotmode; }
+		
+		if ( $part ne "" ) {
+			push @$result, $part;
+			$part = "";
+		}
+		
+		# Store values
+		my $record = {
+			QUOTMODE => $quotmode,
+			RESULT => $result,
+			PAR_COUNT => $par_count,
+			TOKEN => $token,
+			NOEXPHOOK => $no_exp_hook,
+		};
+		push @stack, $record;
+		
+		# Reset variables for new mode
+		$quotmode = $newquotmode;
+		$result = [$qq,];
+		$token = ""; $part = "";
+		$par_count = 0;
+		$no_exp_hook = 1 if $newquotmode eq '$(';
+	};
+	
+	# Pop the stack, restore the previous mode.
+	local *off_quotmode = sub {
+		my ($closing_quote) = @_;
+		
+		if ( $part ne "" ) {
+			push @$result, $part;
+			$part = "";
+		}
+		push @$result, $closing_quote;
+		
+		if ( !@stack ) {
+			$self->_Error("Stack depletion. Token: '$token'. Line: ".$self->YYData->{LINENO}." '$$line'");
+			$quotmode = undef;
+			return;
+		}
+		
+		$no_exp_hook = $stack[-1]{NOEXPHOOK};
+		
+		if ( $quotmode eq '$' && @$result == 2 ) { # empty $ param - just a $ character
+			$result = '$';
+		} 
+		else {
+			# do .. while(0) block
+			{
+				last if ( $quotmode eq '\\' || $quotmode eq '"' || $quotmode eq "'" );
+				last if $no_exp_hook;
+				$self->call_hook($self->YYData->{LINENO}, "EXPANSION", $result);
+			}
+		}
+		
+		# Pop the stack
+		my $record = pop @stack;
+		$quotmode = $record->{QUOTMODE};
+		push @{$record->{RESULT}}, $result;
+		$result = $record->{RESULT};
+		$par_count = $record->{PAR_COUNT};
+		$token = $record->{TOKEN}.serialize($result->[-1]);
+		# $no_exp_hook has already been restored above
+		$part = "";
+	};
+	
+	# Checks that are common for all modes.
+	# Returns 1 if should do 'next' in the main loop.
+	
+	local *check_exppar = sub {
+		# If the current character is an unquoted '$' or '`', the shell shall identify
+		# the start of any candidates for parameter expansion, command substitution,
+		# or arithmetic expansion from their introductory unquoted character sequences:
+		# '$' or '${', '$(' or '`', and '$((', respectively.
+		# [ Also '$[' ]
+		
+		#					$((	  $(	 ${	$[	 `	$
+		if ( $$line =~ s/^( \$\(\( | \$\( | \${ | \$\[ | \` | \$ )//x ) {
+			set_quotmode($1);
+			return 1;
+		}
+		return 0;
+	};
+	
+	local *check_qq = sub {
+		# If the current character is single-quote, or double-quote
+		# and it is not quoted, it shall affect quoting for subsequent characters
+		# up to the end of the quoted text.
+		if ( $$line =~ /^(['"])/ ) { # ' or  "
+			discard_char();
+			set_quotmode($1);
+			return 1;
+		}
+		return 0;
+	};
+	
+	# The main cycle. Read the line char by char
+	while ( 1 ) {
+		if ( !defined $$line || $$line eq "" ) {
+			unless ( $self->YYData->{NO_READLINE} ) {
+				# Read the next line if needed
+				$$line = $self->read_line();
+			}
+			
+			# If the end of input is recognized, the current token shall be delimited.
+			if ( !defined $$line || $$line eq "" ) {
+				last; # delimit
+			}
+		}
+		
+		if ( !defined $quotmode ) {
+			last;
+		}
+				
+		my $nc = ""; # The next (following) character
+		if ( $$line =~ m/^(.)/s ) { # read one char
+			$nc = $1;
+		}
+		
+		## -- FOR ALL MODES --
+		
+		if ( $nc eq '\\' ) {
+			# Check for \<newline>.
+			# If a <newline> follows the backslash, the shell shall
+			# interpret this as line continuation.
+			$$line =~ s/^\\\n//s and redo;
+		}
+		
+		## -- MODES --
+		
+		# Backslash
+		if ( $quotmode eq '\\' ) { # '\'
+			# A backslash that is not quoted shall preserve the literal value
+			# of the following character.
+			shift_char();
+			off_quotmode('');
+			next;
+		} # end of quotmode '\' (backslash)
+		
+		# Unescaped Mode
+		elsif ( $quotmode eq '' ) {
+			# check quotmodes '((', '[['
+			if ( $token eq '' && $$line =~ s/^(\(\(|\[\[)// ) {
+				set_quotmode($1);
+				next;
+			}
+			if ( $token =~ m/^(\(\(|\[\[)/ ) {
+				last;
+			}
+			
+			# If the previous character was used as part of an operator...
+			if ( $token =~ m/^$re_op_parts\z/s ) {
+				# ... and the current character is not quoted and can be used
+				# with the current characters to form an operator,
+				if ( ($token.$nc) =~ m/^$re_operators\z/s ) {
+					# it shall be used as part of that (operator) token.
+					shift_char();
+					next;
+				} else {
+					# If the previous character was used as part of an operator and the current
+					# character cannot be used with the current characters to form an operator,
+					# the operator containing the previous character shall be delimited.
+					
+					last; # delimit the token
+				}
+			}
+			
+			# If the current character is not quoted and can be used as the first
+			# character of a new operator, the current token (if any) shall be delimited.
+			# The current character shall be used as the beginning of the next (operator) token.
+			if ( $nc =~ m/^$re_op_parts\z/s && $token ne '' ) {
+				last; # delimit the token
+			}
+			
+			if ( $$line =~ s/^([\?\*\+\@\!]\()// ) { # extglob patterns
+				set_quotmode('?(', $1);
+				next;
+			}
+			
+			# If the current character is an unquoted <newline>, the current token shall be delimited.
+			if ( $nc =~ m/[\n]/s ) {
+				if ( $token eq '' ) {
+					shift_char(); # take the <newline>
+				}
+				last; # delimit the token
+			}
+			
+			# If the current character is an unquoted <blank>, any token containing
+			# the previous character is delimited and the current character shall be discarded.
+			if ( $nc =~ m/[ \t\r]/s ) {
+				if ( $token ne '' ) {
+					last; # delimit the token
+				}
+				$$line =~ s/^([ \t\r]+)//s; # discard the whitespaces
+				next;
+			}
+			
+			if ( $nc eq '\\' ) {
+				discard_char();
+				set_quotmode($nc);
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			if ( $nc eq '=' ) {
+				if ( $$line =~ s/^( =\( )//x ) { # array initialization syntax
+					set_quotmode($1);
+					next;
+				}
+			}
+			
+			# If the previous character was part of a word, the current character
+			# shall be appended to that word.
+			if ( $token ne '' ) {
+				shift_char();
+				next;
+			}
+			
+			# If the current character is a '#', it and all subsequent characters
+			# up to, but excluding, the next <newline> shall be discarded as a comment.
+			# The <newline> that ends the line is not considered part of the comment.
+			if ( $nc eq '#' ) { # The token is '' due to the previous rule.
+				$$line =~ s/^(#[^\n]*)//s; # discard characters up to <newline>
+				my $comment = $1;
+				if ( $comment =~ /\\$/ ) { # Comment ends with \<newline>
+					$self->call_hook($self->YYData->{LINENO}, "S_NEWLINE_IN_COMMENT", $comment);
+				}
+				next;
+			}
+			
+			# The current character is used as the start of a new word.
+			shift_char();
+			next;
+		} # end of quotmode '' (unescaped)
+		
+		# Command Substitution
+		elsif ( $quotmode eq '$(' ) {
+			# If the previous character was used as part of an operator...
+			
+			if ( $token eq '' || $token =~ m/^$re_op_parts\z/s ) {
+				# ... and the current character is not quoted and can be used
+				# with the current characters to form an operator,
+				# [ treat '((' as two parentheses '(' '(' ]
+				if ( ($token.$nc) =~ m/^$re_operators\z/s ) {
+					# it shall be used as part of that (operator) token.
+					
+					# [ Match parentheses ]
+					if ( $nc eq '(' ) {
+						$par_count++;
+						shift_char();
+						next;
+					}
+					elsif ( $nc eq ')' ) {
+						if ( $par_count == 0 ) { # This is the closing parenthesis!
+							discard_char();
+							off_quotmode(')');
+							next;
+						}
+						$par_count--;
+						shift_char();
+						next;
+					}
+					
+					shift_char();
+					next;
+				}
+				elsif ( $token ne '' ) {
+					# If the previous character was used as part of an operator and the current
+					# character cannot be used with the current characters to form an operator,
+					# the operator containing the previous character shall be delimited.
+					
+					push @$result, $part; $token = $part = ""; # delimit the token
+					next;
+				}
+			}
+			
+			# If the current character is not quoted and can be used as the first
+			# character of a new operator, the current token (if any) shall be delimited.
+			# The current character shall be used as the beginning of the next (operator) token.
+			if ( $nc =~ m/^$re_op_parts\z/s && $token ne '' ) {
+				push @$result, $part; $token = $part = ""; # delimit the token
+				next;
+			}
+			
+			if ( $$line =~ s/^([\?\*\+\@\!]\()// ) { # extglob patterns
+				set_quotmode('?(', $1);
+				next;
+			}
+			
+			# If the current character is an unquoted <newline>, the current token shall be delimited.
+			if ( $nc =~ /[\n]/s ) {
+				if ( $token ne '' ) {
+					push @$result, $part; $token = $part = ""; # delimit the token
+					# no need to do next();
+				}
+				shift_char();
+				push @$result, $part; $token = $part = ""; # delimit the token
+				next;
+			}
+			
+			# If the current character is an unquoted <blank>, any token containing
+			# the previous character is delimited and the current character shall be discarded.
+			if ( $nc =~ /[ \t\r]/s ) {
+				if ( $token ne '' ) {
+					push @$result, $part; $token = $part = ""; # delimit the token
+				}
+				$$line =~ s/^([ \t\r]+)//s; # discard the whitespaces
+				push @$result, $1;
+				next;
+			}
+			
+			if ( $nc eq '\\' ) {
+				discard_char();
+				set_quotmode($nc);
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			if ( $nc eq '=' ) {
+				if ( $$line =~ s/^( =\( )//x ) { # array initialization syntax
+					set_quotmode($1);
+					next;
+				}
+			}
+			
+			# If the previous character was part of a word, the current character
+			# shall be appended to that word.
+			if ( $token ne '' ) {
+				shift_char();
+				next;
+			}
+			
+			# If the current character is a '#', it and all subsequent characters
+			# up to, but excluding, the next <newline> shall be discarded as a comment.
+			# The <newline> that ends the line is not considered part of the comment.
+			if ( $nc eq '#' ) { # The token is '' due to the previous rule.
+				$$line =~ s/^(#[^\n]*)//s; # discard characters up to <newline>
+				my $comment = $1;
+				if ( $comment =~ /\\$/ ) { # Comment ends with \<newline>
+					$self->call_hook($self->YYData->{LINENO}, "S_NEWLINE_IN_COMMENT", $comment);
+				}
+				next;
+			}
+			
+			# The current character is used as the start of a new word.
+			shift_char();
+			next;
+		} # end of quotmode '$(' (Command Substitution)
+		
+		# Backquote Command Substitution
+		elsif ( $quotmode eq '`' ) {
+			# Within the backquoted style of command substitution,
+			# backslash shall retain its literal meaning,
+			# except when followed by: '$', '`', or '\'.
+			if ( $nc eq '\\' ) {
+				if ( $$line =~ /^\\[\$\`\\]/ ) {
+					discard_char();
+					set_quotmode($nc);
+					next;
+				}
+			}
+			
+			# The search for the matching backquote shall be satisfied
+			# by the first backquote found without a preceding backslash.
+			if ( $nc eq '`' ) {
+				discard_char();
+				off_quotmode($nc);
+				next;
+			}
+			
+			# During this search, if a non-escaped backquote is encountered
+			# within a shell comment, a here-document, an embedded command
+			# substitution of the $(command) form, or a quoted string,
+			# undefined results occur.
+			# A single-quoted or double-quoted string that begins,
+			# but does not end, within the "`...`" sequence produces undefined results.
+			
+			# The current character is used as the start of a new word.
+			shift_char();
+			next;
+		} # end of quotmode '`' (Backquote Command Substitution)
+		
+		# Arithmetic Expansion
+		elsif ( $quotmode eq '$((' ) {
+			# For $((expression)) and ((expression)) the expression is treated
+			# as if it were within double quotes, but a double quote inside
+			# the parentheses is not treated specially.
+			
+			if ( $nc eq '\\' ) {
+				# [ The backslash is an escape character only when followed by '$' or '`'. ]
+				if ( $$line =~ /^\\[\$\`]/ ) {
+					discard_char();
+					set_quotmode($nc);
+					next;
+				}
+			}
+			elsif ( $nc eq '(' ) { # Match parentheses
+				$par_count++;
+				shift_char();
+				next;
+			}
+			elsif ( $nc eq ')' ) {
+				if ( $par_count == 0 ) { # Closing '))' is expected
+					if ( $$line =~ s/^\)\)// ) {
+						off_quotmode('))');
+					} else {
+						$self->_Error("Unmatching parantheses in construction \$((...))");
+						discard_char();
+						off_quotmode(')');
+					}
+					next;
+				}
+				$par_count--;
+				shift_char();
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode '$((' (Arithmetic Expansion)
+		
+		# Alternative Arithmetic Expansion?
+		elsif ( $quotmode eq '$[' ) {
+			# [ Undocumented arithmetic expansion syntax? ]
+			
+			if ( $nc eq '\\' ) {
+				if ( $$line =~ /^\\[\$\`'"]/ ) {
+					discard_char();
+					set_quotmode($nc);
+					next;
+				}
+			}
+			elsif ( $nc eq ']' ) { # Close
+				discard_char();
+				off_quotmode($nc);
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode '$[' (Alternative Arithmetic Expansion?)
+		
+		# Conditional compound command
+		elsif ( $quotmode eq '[[' ) {
+			if ( $nc eq '\\' ) {
+				discard_char();
+				set_quotmode($nc);
+				next;
+			}
+			elsif ( $nc eq '[' ) { # Match parentheses
+				$par_count++;
+				shift_char();
+				next;
+			}
+			elsif ( $nc eq ']' ) {
+				if ( $par_count < 2 && $$line =~ s/^(\]\])// ) {
+					off_quotmode($1);
+					next;
+				}
+				$par_count--;
+				shift_char();
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode '[[' (Conditional compound command)
+		
+		# Extglob pattern
+		elsif ( $quotmode eq '?(' ) {
+			if ( $nc eq '\\' ) {
+				discard_char();
+				set_quotmode($nc);
+				next;
+			}
+			elsif ( $nc eq '(' ) { # Match parentheses
+				$par_count++;
+				shift_char();
+				next;
+			}
+			elsif ( $nc eq ')' ) {
+				if ( $par_count ==0 ) {
+					discard_char();
+					off_quotmode($1);
+					next;
+				}
+				$par_count--;
+				shift_char();
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		}
+		
+		# Arithmetic Conditional
+		elsif ( $quotmode eq '((' ) {
+			# For $((expression)) and ((expression)) the expression is treated
+			# as if it were within double quotes, but a double quote inside
+			# the parentheses is not treated specially.
+			
+			if ( $nc eq '\\' ) {
+				# The backslash shall retain its special meaning as an 
+				# escape character (see Escape Character (Backslash)) only when followed
+				# by one of the following characters when considered special:  $   `   "   \
+				if ( $$line =~ /^\\[\$\`"'\\]/ ) {
+					discard_char();
+					set_quotmode($nc);
+					next;
+				}
+			}
+			elsif ( $nc eq '(' ) { # Match parentheses
+				$par_count++;
+				shift_char();
+				next;
+			}
+			elsif ( $nc eq ')' ) {
+				if ( $par_count == 0 ) {
+					if ( $$line =~ s/^(\)\))// ) {
+						off_quotmode($1);
+						next;
+					} else {
+						# This appeared to be ((...) ...), not ((...))
+						# Shoud do a bit of magic to undo everything since the first '('
+						
+						my $prev_token = $stack[-1]{TOKEN};
+						$no_exp_hook = 1;
+						discard_char();
+						off_quotmode(')');
+						$token = $prev_token;
+						$$line = serialize(pop @$result).$$line; # deparse
+						shift_char();
+						# delimit the '('
+						if ( $quotmode eq '' ) {
+							last; # delimit the token
+						}
+						die; # Should not be reached
+					}
+				}
+				$par_count--;
+				shift_char();
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode '((' (Arithmetic Conditional)
+		
+		# Parameter Expansion
+		elsif ( $quotmode eq '${' ) {
+			if ( $nc eq '\\' ) {
+				discard_char();
+				set_quotmode($nc);
+				next;
+			}
+			
+			if ( $nc eq '}' ) {
+				discard_char();
+				off_quotmode($nc);
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode '${' (Parameter Expansion)
+		
+		# Array Initialization
+		elsif ( $quotmode eq '=(' ) {
+			if ( $nc eq '\\' ) {
+				discard_char();
+				set_quotmode($nc);
+				next;
+			}
+			
+			if ( $nc eq ')' ) {
+				discard_char();
+				off_quotmode($nc);
+				next;
+			}
+			
+			check_exppar()
+				and next;
+			
+			check_qq()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode '=(' (Array Initialization)
+		
+		# Parameter
+		elsif ( $quotmode eq '$' ) {
+			if ( $token =~ /^\d*\z/ && $nc =~ /\d/ ) { # numeric
+				shift_char();
+				next;
+			}
+			if ( $token eq "" && $nc =~ /[@*#?\-\$!0]/ ) { # special parameter
+				shift_char();
+				next;
+			}
+			if ( $token eq "" && $nc =~ /[A-Za-z_]/ ) { # a valid first character of a variable name
+				shift_char();
+				next;
+			}
+			if ( $token =~ /^[A-Za-z_][A-Za-z_0-9]*/ && $nc =~ /[A-Za-z_0-9]/ ) { # variable name
+				shift_char();
+				next;
+			}
+			# If an unquoted '$' is followed by a character that is either not numeric,
+			# the name of one of the special parameters (see Special Parameters),
+			# a valid first character of a variable name, a left curly brace ( '{' ) or
+			# a left parenthesis, the result is unspecified.
+			if ( $token eq "" ) {
+				die if $nc eq '{'; # Should not happen
+				
+				my $prev_quotmode = '';
+				if ( @stack ) {
+					$prev_quotmode = $stack[-1]->{QUOTMODE};
+				}
+				unless ( $prev_quotmode =~ /['"]/ && $nc eq $prev_quotmode ) {
+					$self->call_hook( $self->YYData->{LINENO}, "SDOLLAR", $$line, $prev_quotmode );
+				}
+			}
+			
+			off_quotmode('');
+			next;
+		} # end of quotmode '$' (Parameter)
+		
+		# Quotes '...'
+		elsif ( $quotmode eq "'" ) {
+			if ( $nc eq $quotmode ) { # the end of quotation.
+				discard_char();
+				off_quotmode($nc);
+				next;
+			}
+			
+			shift_char();
+			next;
+		} # end of quotmode "'" (Quotes '...')
+		
+		# Doublequotes "..."
+		elsif ( $quotmode eq '"' ) {
+			# Enclosing characters in double-quotes ( "" ) shall preserve the literal value
+			# of all characters within the double-quotes, with the exception of the characters
+			# dollar sign ($), backquote (`), and backslash (\).
+			
+			check_exppar()
+				and next;
+			
+			if ( $nc eq '\\') {
+				if ( $$line =~ /^\\[\$\`"\\]/ ) {
+					discard_char();
+					set_quotmode($nc);
+					next;
+				}
+			}
+			
+			if ( $nc eq $quotmode ) { # the end of quotation.
+				discard_char();
+				off_quotmode($nc);
+				next;
+			}
+			
+			shift_char();
+			next;
+		} # end of quotmode "'" (Doublequotes "...")
+		
+		# HEREDOC <<
+		elsif ( $quotmode eq '<<' ) {
+			
+			if ( $nc eq '\\') {
+				# ...the backslash in the input behaves as the backslash inside double-quotes
+				# (see Double-Quotes). However, the double-quote character ( " ) shall not be
+				# treated specially within a here-document.
+				if ( $$line =~ /^\\[\$\`\\]/ ) {
+					discard_char();
+					set_quotmode($nc);
+					next;
+				}
+			}
+			
+			check_exppar()
+				and next;
+			
+			shift_char();
+			next;
+		} # end of quotmode "<<" (HEREDOC <<)
+		
+		die "Unhandled quotmode: $quotmode";
+	}
+	
+	if ( $part ne "" ) {
+		push @$result, $part;
+		$part = '';
+	}
+	
+	while ( @stack ) {
+		unless ( $quotmode eq '\\' || $quotmode eq '$' ) {
+			$self->_Error("Unclosed $quotmode : '".limit_len(serialize($result))."'");
+		}
+		off_quotmode("");
+	}
+	
+	# The token was delimited!
+	
+	if ( $expect_heredoc ) {
+		# We just have read a WORD that is a here-document delimiter.
+		# Read the following lines until this delimiter is encountered.
+		# Then return the readed text instead the delimiter (that is what expected).
+		
+		# Quote removal shall be applied to the word to determine the delimiter
+		# that is used to find the end of the here-document that begins after the next <newline>.
+		my $delimiter = unquote($result);
+		# There may be tricks in the definition of the delimiter. Do our best to unquote it.
+		# If failed, then $delimiter is undef.
+		if ( !defined $delimiter || !$delimiter ) {
+			$self->_Error("Failed to unquote HEREDOC delimiter: '".limit_len(serialize($result))."'");
+		}
+		my $word = "";
+		while ( 1 ) {
+			my $s = $self->read_line();
+			if ( !defined $s ) {
+				$self->_Error("EOF, but expected end of HEREDOC ($delimiter)");
+				return [""];
+			}
+			$s =~ s/[\x0d\n]$//; # chomp
+			if ( $expect_heredoc == 2 ) {
+				# If the redirection symbol is "<<-", all leading <tab>s shall be stripped
+				# from input lines and the line containing the trailing delimiter.
+				$s =~ s/^\t+//mg;
+			}
+			last if $s eq $delimiter;
+			$word .= $s;
+		}
+		$expect_heredoc = 0;
+		
+		# If no characters in word are quoted, all lines of the here-document shall be expanded
+		# for parameter expansion, command substitution, and arithmetic expansion.
+		if ( $delimiter eq $token ) {
+			my $oldmode = $self->YYData->{NO_READLINE};
+			$self->YYData->{NO_READLINE} = 1;
+			$result = $self->read_token(\$word, '<<'); # parse the HEREDOC text
+			$self->YYData->{NO_READLINE} = $oldmode;
+			return [$result];
+		} else {
+			return [[$word]];
+		}
+	}
+	
+	return $result;
 }
 
 sub is_name {
-    my ($word) = @_;
-    
-    # In the shell command language, a word consisting solely of underscores, digits,
-    # and alphabetics from the portable character set.
-    # The first character of a name is not a digit.
-    if ( $word =~ /^[A-Za-z_][A-Za-z_0-9]*\z/s ) {
-        return 1;
-    }
-    
-    return 0;
+	my ($word) = @_;
+	
+	# In the shell command language, a word consisting solely of underscores, digits,
+	# and alphabetics from the portable character set.
+	# The first character of a name is not a digit.
+	if ( $word =~ /^[A-Za-z_][A-Za-z_0-9]*\z/s ) {
+		return 1;
+	}
+	
+	return 0;
 }
 
 sub is_assignment {
-    my ($word) = @_;
-
-    if ( $word =~ /^([^=]+)=/ && is_name($1) ) {
-        return 1;
-    }
-    
-    return 0;
+	my ($struct) = @_;
+	
+	if ( defined $struct->[0] && ref($struct->[0]) eq '' ) {
+		
+		if ( $struct->[0] =~ m/^\w+(\[[^\]]*\])?(\+)?=/ ) {
+			return 1;
+		}
+		if ( serialize($struct) =~ m/^\w+(\[[^\]]*\])?(\+)?=/ ) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 sub is_expected {
-    my ($self, $token) = @_;
-    
-    #print_ref ($self->{GRAMMAR});
-    #return 1;    
-    
-    my @stack = map {$_->[0]} @{$self->{STACK}};
-    
-    my $mode = "shift";
-    my $nodefault = 1;
-    my $rule = undef;
-    
-    #print "is_expected: TOKEN: '$token'";
-    
-    my $state = $stack[-1];
-    
-    #print "=================\n";
-    
-    while ( defined $state ) {
-        #print "??[$mode] $state (".(defined $rule?$rule:'').")\n";
-        if ( $mode eq "shift" ) {
-            #print "is_expected: CHECK ('$state') $mode";
-            
-            if ( !exists $self->{STATES}[$state] ) {
-                #print "is_expected: state ('$state') doesn't exist.\n";
-                die "Should not happen";
-            }
-            
-            if ( exists $self->{STATES}[$state]{ACTIONS} ) {
-                #print( 5, "is_expected: TERMS: "
-                #    .(join " ", keys %{$self->{STATES}[$state]{ACTIONS}}), "\n" );
-                
-                foreach my $key ( keys %{$self->{STATES}[$state]{ACTIONS}} ) {
-                    if ( $token eq $key ) { return 1; }
-                }
-            }
-            
-            # default
-            
-            if ( !exists $self->{STATES}[$state]{DEFAULT} ) { last; }
-            
-            my $rule_num = -$self->{STATES}[$state]{DEFAULT};
-            $rule = $self->{GRAMMAR}[$rule_num][1];
-            
-            #print_ref $self->{GRAMMAR}[$rule_num][2];
-            my $shift_num = @{$self->{GRAMMAR}[$rule_num][2]};
-            for ( my $i = 0; $i < $shift_num; $i++ ) {
-                pop @stack;
-            }
-            
-            if ( !@stack ) { die "Should not happen 3"; }
-            $state = $stack[-1];
-            
-            #print "is_expected: reduced $shift_num";
-            $mode = "reduced";
-            next;
-        }
-        if ( $mode eq "reduced" ) {
-            #print "is_expected: ('$state') REDUCED with '$rule'";
-            
-            if ( defined $self->{STATES}[$state]{GOTOS}
-                && defined $self->{STATES}[$state]{GOTOS}{$rule} ) 
-            {
-                $state = $self->{STATES}[$state]{GOTOS}{$rule};
-                $mode = "shift";
-                push @stack, $state;
-                $nodefault = 0;
-                next;
-            }
-            
-            last;
-        }
-    }
-    #print "is_expected: stack end";
-    
-    return 0;
+	my ($self, $token) = @_;
+	
+	#print_ref ($self->{GRAMMAR});
+	#return 1;	
+	
+	my @stack = map {$_->[0]} @{$self->{STACK}};
+	
+	my $mode = "shift";
+	my $nodefault = 1;
+	my $rule = undef;
+	
+	#print "is_expected: TOKEN: '$token'";
+	
+	my $state = $stack[-1];
+	
+	#print "=================\n";
+	
+	while ( defined $state ) {
+		#print "??[$mode] $state (".(defined $rule?$rule:'').")\n";
+		if ( $mode eq "shift" ) {
+			#print "is_expected: CHECK ('$state') $mode";
+			
+			if ( !exists $self->{STATES}[$state] ) {
+				#print "is_expected: state ('$state') doesn't exist.\n";
+				die "Should not happen";
+			}
+			
+			if ( exists $self->{STATES}[$state]{ACTIONS} ) {
+				#print( 5, "is_expected: TERMS: "
+				#	.(join " ", keys %{$self->{STATES}[$state]{ACTIONS}}), "\n" );
+				
+				foreach my $key ( keys %{$self->{STATES}[$state]{ACTIONS}} ) {
+					if ( $token eq $key ) { return 1; }
+				}
+			}
+			
+			# default
+			
+			if ( !exists $self->{STATES}[$state]{DEFAULT} ) { last; }
+			
+			my $rule_num = -$self->{STATES}[$state]{DEFAULT};
+			$rule = $self->{GRAMMAR}[$rule_num][1];
+			
+			#print_ref $self->{GRAMMAR}[$rule_num][2];
+			my $shift_num = @{$self->{GRAMMAR}[$rule_num][2]};
+			for ( my $i = 0; $i < $shift_num; $i++ ) {
+				pop @stack;
+			}
+			
+			if ( !@stack ) { die "Should not happen 3"; }
+			$state = $stack[-1];
+			
+			#print "is_expected: reduced $shift_num";
+			$mode = "reduced";
+			next;
+		}
+		if ( $mode eq "reduced" ) {
+			#print "is_expected: ('$state') REDUCED with '$rule'";
+			
+			if ( defined $self->{STATES}[$state]{GOTOS}
+				&& defined $self->{STATES}[$state]{GOTOS}{$rule} ) 
+			{
+				$state = $self->{STATES}[$state]{GOTOS}{$rule};
+				$mode = "shift";
+				push @stack, $state;
+				$nodefault = 0;
+				next;
+			}
+			
+			last;
+		}
+	}
+	#print "is_expected: stack end";
+	
+	return 0;
 }
 
 sub __Lexer {
-    my ($self) = @_;
-    
-    my ($token, $struct) = $self->read_token();
-    
-    #print "::$token\n"; # DBG:
-    #print_ref $struct; # DBG:
-    
-    my $tobj = [
-            $token,
-            $self->YYData->{LINENO},
-            $struct,
-        ];
-    
-    if ( $token eq "" ) {
-        return ('', undef);
-    }
-    
-    # 2.10.1 Shell Grammar Lexical Conventions
-    
-    # A <newline> shall be returned as the token identifier NEWLINE.
-    if ( $token eq "\n" ) { return ('NEWLINE', $tobj); }
-    
-    # If the token is an operator, the token identifier for that operator shall result.
-    if ( defined $operators{$token} && $self->is_expected($operators{$token}) ) {
-        return ($operators{$token}, $tobj); 
-    }
-    
-    # If the string consists solely of digits and the delimiter character is one of
-    # '<' or '>', the token identifier IO_NUMBER shall be returned.
-    if ( $token =~ /\A\d+\z/s && defined $self->YYData->{LINE} && $self->YYData->{LINE} =~ /^[<>]/ ) {
-        if ( $self->is_expected('IO_NUMBER') ) {
-            return ('IO_NUMBER', $tobj);
-        }
-        else {
-            # Bash allows syntax like '2>&1>/dev/null'
-            $self->call_hook( $self->YYData->{LINENO}, "NOT_IO_NUMBER", $token.$self->YYData->{LINE} );
-        }
-    }
-    
-    # Otherwise, the token identifier TOKEN results.
-    # Further distinction on TOKEN is context-dependent.
-    
-    if ( defined $reserved{$token} && $self->is_expected($reserved{$token}) ) {
-        return ($reserved{$token}, $tobj);
-    }
-    
-    # Hack for discerning '))' in bash scripts and two ')' in shell scripts
-    if ( $token eq "))" && ! $self->is_expected($token) ) {
-        $token = $tobj->[0] = ")"; # one brace is being yelded
-        $self->YYData->{LINE} = ")".$self->YYData->{LINE}; # another one is being pushed back
-    }
-    if ( $token eq "((" && ! $self->is_expected($token) ) {
-        $token = $tobj->[0] = "("; # one brace is being yelded
-        $self->YYData->{LINE} = "(".$self->YYData->{LINE}; # another one is being pushed back
-    }
-    
-    # Syntactic tokens
-    if ( $self->YYIsterm($token) && !$self->YYIssemantic($token) && $self->is_expected($token) ) {
-        return ($token, $tobj);
-    }
-    
-    # TODO:
-    # Words that are the concatenation of a name and a colon ( ':' ) are reserved;
-    # their use produces unspecified results.
-    
-    return ('WORD', $tobj);
+	my ($self) = @_;
+	
+	my $struct = $self->read_token();
+	my $token = serialize($struct);
+	
+	my $tobj = [
+			$self->YYData->{LINENO},
+			$struct,
+		];
+	
+	if ( ref($struct->[0]) eq 'ARRAY' ) {
+		if ( $struct->[0][0] eq '((' ) {
+			return ('DPAR', $tobj);
+		}
+		return ('WORD', $tobj);
+	}
+	
+	if ( $token eq "" ) {
+		return ('', undef);
+	}
+	
+	# 2.10.1 Shell Grammar Lexical Conventions
+	
+	# A <newline> shall be returned as the token identifier NEWLINE.
+	if ( $token eq "\n" ) { return ('NEWLINE', $tobj); }
+	
+	# If the token is an operator, the token identifier for that operator shall result.
+	if ( defined $operators{$token} ) {
+		if ( $token eq '<<' ) { # HEREDOC follows
+			$expect_heredoc = 1;
+		}
+		elsif ( $token eq '<<-' ) {
+			$expect_heredoc = 2;
+		}
+		return ($operators{$token}, $tobj); 
+	}
+	
+	# Syntactic tokens
+	if ( $self->YYIsterm($token) && !$self->YYIssemantic($token) ) {
+		return ($token, $tobj);
+	}
+	
+	# If the string consists solely of digits and the delimiter character is one of
+	# '<' or '>', the token identifier IO_NUMBER shall be returned.
+	if ( $token =~ /\A\d+\z/s && defined $self->YYData->{LINE} && $self->YYData->{LINE} =~ /^[<>]/ ) {
+		if ( $self->is_expected('IO_NUMBER') ) {
+			return ('IO_NUMBER', $tobj);
+		}
+		else {
+			# Bash allows syntax like '2>&1>/dev/null'
+			$self->call_hook( $self->YYData->{LINENO}, "NOT_IO_NUMBER", $token.$self->YYData->{LINE} );
+		}
+	}
+	
+	# Otherwise, the token identifier TOKEN results.
+	# Further distinction on TOKEN is context-dependent.
+	
+	if ( defined $reserved{$token} && $self->is_expected($reserved{$token}) ) {
+		return ($reserved{$token}, $tobj);
+	}
+	
+	if ( $self->is_expected('ASSIGNMENT_WORD') && is_assignment($struct) ) {
+		$self->call_hook( $self->YYData->{LINENO}, "ASSIGNMENT_WORD", $struct );
+		return ('ASSIGNMENT_WORD', $tobj);
+	}
+	
+	return ('WORD', $tobj);
 }
 
 # Lexer wrapper
 sub _Lexer {
-    my ($self) = @_;
-    
-    my ($type, $token) = __Lexer($self);
-    
-    if ( $type ne "WORD" && defined $token ) {
-        delete $token->[2];
-    }
-    
-    # DBG:
-    #print "LEX#".$token->[1]."# (".$type.") '".$token->[0]."'\n";
-    #my @expected = $self->YYExpect();
-    #print "EXP## @expected\n";
-    
-    return ($type, $token);
+	my ($self) = @_;
+	
+	my ($type, $token) = __Lexer($self);
+	
+	if ( $type eq 'WORD' ) {
+		$self->call_hook( $token->[0], "EXPANSION", ['', @{$token->[1]},''] );
+	}
+	
+	return ($type, $token);
 }
 
 sub _Error {
-    my ($self, $msg) = @_;
-    
-    if ( !defined $msg ) { # Parser's error
-        my $token = $self->YYCurval;
-        
-        my $linenum = $token ? $token->[1] : 0;
+	my ($self, $msg) = @_;
+	
+	if ( !defined $msg ) { # Parser's error
+		my $token = $self->YYCurval;
+		
+		my $linenum = $token ? $token->[0] : 0;
 
-        $self->call_hook($linenum, "PARSERERR");
-        
-        my @expected = $self->YYExpect();
-        print "EXPECTED# @expected\n";
-        
-        #print "Parse error: near '".($token ? $token->[0] : "")."'";
-    } else {
-        $self->call_hook($self->YYData->{LINENO}, "MISCERR", $msg);
-        
-        #print "Error at line ".$self->YYData->{LINENO}.": ".$msg;
-    }
-
-    #die "DBG: parser failed"; # DBG:
+		$self->call_hook($linenum, "PARSERERR");
+		
+		my @expected = $self->YYExpect();
+		print "EXPECTED# @expected\n";
+		
+		#print "Parse error: near '".($token ? serialize($token->[1]) : "")."'";
+	} else {
+		$self->call_hook($self->YYData->{LINENO}, "MISCERR", $msg);
+		
+		#print "Error at line ".$self->YYData->{LINENO}.": ".$msg;
+	}
 }
 
 sub Run {
-    my ($self, $filename, $text_ref) = @_;
-    
-    # Set the input
-    $self->YYData->{FILENAME} = $filename;
-    $self->YYData->{INPUT} = $$text_ref;
-
-    $self->YYParse( yylex => \&_Lexer, yyerror => \&_Error );
+	my ($self, $filename, $text_ref) = @_;
+	
+	# Set the input
+	$self->YYData->{FILENAME} = $filename;
+	$self->YYData->{INPUT} = $$text_ref;
+	
+	$self->YYParse( yylex => \&_Lexer, yyerror => \&_Error );
 }
 
 #-----------------------------------------------------------------------
