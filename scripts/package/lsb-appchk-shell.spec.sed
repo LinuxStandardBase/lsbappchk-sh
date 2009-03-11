@@ -1,14 +1,16 @@
+# %{ver}, %{rel} are provided by the Makefile
+%define ver @VERSION@
+%define rel @RELEASE@
 %define basedir /opt/lsb
-# %{version}, %{rel} are provided by the Makefile
+
 Summary: LSB Shell Script Application Checker
 Name: lsb-appchk-shell
-Version: %{version}
+Version: %{ver}
 Release: %{rel}
 License: GPL
 Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
 URL: http://www.linuxbase.org/test
-#Prefix: %{_prefix}
 BuildRoot: %{_tmppath}/%{name}-root
 AutoReqProv: no
 BuildArch: noarch
