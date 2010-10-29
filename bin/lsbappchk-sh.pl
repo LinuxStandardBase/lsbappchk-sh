@@ -567,6 +567,8 @@ sub OnCommand {
 				my $filename = find_input_file($param);
 				if ( !$filename ) {
 					if ( $param eq '/lib/lsb/init-functions' ) { tp_result 'PASS'; return; }
+					if ( $param eq '/usr/lib/lsb/install_initd' ) { tp_result 'PASS'; return; }
+					if ( $param eq '/usr/lib/lsb/remove_initd' ) { tp_result 'PASS'; return; }
 					tp_result 'FIP', file_pos($parser)
 						."Unknown file was included via the dot operator: '. ".limit_len($param)."'";
 					return;
