@@ -24,7 +24,7 @@ gensrc:
 		export LSBUSER=$(DEFAULT_MYSQL_USER) LSBDBPASSWD=$(DEFAULT_MYSQL_PWD) \
 		LSBDB=$(DEFAULT_MYSQL_DB) LSBDBHOST=$(DEFAULT_MYSQL_HOST) ; \
 	fi ; \
-	for lsbver in "3.0" "3.1" "3.2" "4.0"; do \
+	for lsbver in "3.0" "3.1" "3.2" "4.0" "4.1"; do \
 		$(MKCMDLIST) -v $$lsbver -o $(CMDLIST_DIR)$(CMDLIST_PREF)$$lsbver || exit 1; \
 	done
 

@@ -36,12 +36,12 @@ open CMDS, ">$outfile"
 	or die "Can't open '$outfile' for writing.";
 
 print CMDS "# Generated file\n";
-print CMDS "# List of LSB $lsbversion commands for lsbappchk-ssh\n";
+print CMDS "# List of LSB $lsbversion commands for lsbappchk-sh\n";
 
 $select = "SELECT DISTINCT Cname FROM Command "
-		."LEFT JOIN ModCmd ON MCcid=Cid "
-		."WHERE (MCappearedin<>'' and MCappearedin <= '$lsbversion') "
-		."AND (MCwithdrawnin IS NULL OR MCwithdrawnin > '$lsbversion') "
+		."LEFT JOIN SModCmd ON SMCcid=Cid "
+		."WHERE (SMCappearedin<>'' and SMCappearedin <= '$lsbversion') "
+		."AND (SMCwithdrawnin IS NULL OR SMCwithdrawnin > '$lsbversion') "
 		."ORDER BY Cname "
 		;
 
