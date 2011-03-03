@@ -1,7 +1,7 @@
 # values used to make .spec from .spec.sed
 PACKAGE=lsb-appchk-shell
 VERSION=4.1.0
-RELEASE=1
+RELEASE=2
 
 #
 # Derive date string for daily snapshots

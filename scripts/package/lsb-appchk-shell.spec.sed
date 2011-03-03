@@ -34,6 +34,7 @@ rm -rf ${RPM_BUILD_ROOT}
 mkdir -p ${RPM_BUILD_ROOT}%{basedir}/bin
 mkdir -p ${RPM_BUILD_ROOT}%{basedir}/share/appchk
 cp -p bin/lsbappchk-sh.pl ${RPM_BUILD_ROOT}%{basedir}/bin
+chmod a+x ${RPM_BUILD_ROOT}%{basedir}/bin/lsbappchk-sh.pl 
 cp -p share/appchk/ShParser.pm ${RPM_BUILD_ROOT}%{basedir}/share/appchk
 cp -p share/appchk/sh-cmdlist-* ${RPM_BUILD_ROOT}%{basedir}/share/appchk
 
