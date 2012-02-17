@@ -1,7 +1,9 @@
 # values used to make .spec from .spec.sed
 PACKAGE=lsb-appchk-shell
 VERSION=4.1.0
-RELEASE=2
+RELEASE=3
+EYAPP_VER=1.181
+EYAPP_URL=http://search.cpan.org/CPAN/authors/id/C/CA/CASIANO/
 
 #
 # Derive date string for daily snapshots
@@ -14,6 +16,7 @@ RPM_BINARY_NAME=$(FULL_PACKAGE_NAME)-$(RELEASE).$(RPM_BUILD_ARCH).rpm
 RPM_SOURCE_NAME=$(FULL_PACKAGE_NAME)-$(RELEASE).src.rpm
 
 SOURCE1 = $(PACKAGE)-$(VERSION).tar.gz
+SOURCE2 = Parse-Eyapp-$(EYAPP_VER).tar.gz
 
 # Temporary build directory
 TMP_BUILD_DIR=/tmp/$(FULL_PACKAGE_NAME)
@@ -64,11 +67,11 @@ endif
 clean:
 	@rm -f *.rpm *.deb *.tar.gz $(PACKAGE).spec
 
-tarball: $(SOURCE1)
+tarball: $(SOURCE1) $(SOURCE2)
 
 # Specfile generation rule
 %.spec : %.spec.sed
-	sed -e "s#@VERSION@#`echo $(VERSION)`#" -e "s#@RELEASE@#`echo $(RELEASE)`#" < $< > $@
+	sed -e "s#@VERSION@#`echo $(VERSION)`#" -e "s#@RELEASE@#`echo $(RELEASE)`#" -e "s#@EYAPP_VER@#`echo $(EYAPP_VER)`#" < $< > $@
 
 deb_package: rpm_package
 	@fakeroot alien -cdk $(RPM_BINARY_NAME)
@@ -104,5 +107,8 @@ ifdef CVSTREES
 else
 	bzr export $(SOURCE1) $(BZRTREES)/$(BZR_MODULE)
 endif
+
+$(SOURCE2):
+	wget $(EYAPP_URL)/$(SOURCE2)
 
 .PHONY : tarball rpm_package

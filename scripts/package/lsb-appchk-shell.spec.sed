@@ -1,6 +1,7 @@
-# %{ver}, %{rel} are provided by the Makefile
+# %{ver}, %{rel}, %{eyapp_ver} are provided by the Makefile
 %define ver @VERSION@
 %define rel @RELEASE@
+%define eyapp_ver @EYAPP_VER@
 %define basedir /opt/lsb
 
 Summary: LSB Shell Script Application Checker
@@ -10,21 +11,31 @@ Release: %{rel}
 License: GPL
 Group: Development/Tools
 Source: %{name}-%{version}.tar.gz
+Source1: http://search.cpan.org/CPAN/authors/id/C/CA/CASIANO/Parse-Eyapp-%{eyapp_ver}.tar.gz
 URL: http://www.linuxbase.org/test
 BuildRoot: %{_tmppath}/%{name}-root
 AutoReqProv: no
 BuildArch: noarch
-BuildRequires: perl(Parse::Eyapp) 
+BuildRequires: perl 
 
 %description
 This is the official package version of the LSB Shell Script Checker. 
 
 #==================================================
 %prep
-%setup -q
+%setup -q -a1
 
 #==================================================
 %build
+# build/install Parse-Eyapp first
+cd Parse-Eyapp-%{eyapp_ver}
+perl Makefile.PL PREFIX=../perl-local
+make
+make install
+cd ..
+# now the checker
+export PERL5LIB=perl-local/lib/perl5/site_perl/
+export PATH=$PATH:$(pwd)/perl-local/local/bin
 make
 
 #==================================================
