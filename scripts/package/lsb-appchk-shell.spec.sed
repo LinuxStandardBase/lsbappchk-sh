@@ -35,7 +35,12 @@ make install
 cd ..
 # now the checker
 export PERL5LIB=perl-local/lib/perl5/site_perl/
-export PATH=$PATH:$(pwd)/perl-local/local/bin
+# for some reason, some perl installs put the binary in "local"
+if [ -d "./perl-local/local" ];then
+  export PATH=$PATH:$(pwd)/perl-local/local/bin
+else
+  export PATH=$PATH:$(pwd)/perl-local/bin
+fi
 make
 
 #==================================================
