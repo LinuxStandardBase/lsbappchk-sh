@@ -792,12 +792,10 @@ sub OnExpansion {
 		
 		if ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*[#%]/ ) {
 			# OK, do nothing
-		}
-		elsif ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*\// ) {
+		}elsif ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*\// ) {
 			tp_result 'FAIL', file_pos($parser)
 					."'\${$line}': Pattern replacement is a bashism. Use 'sed' instead.";
-		}
-		elsif ( $line =~ /^[A-Za-z_][A-Za-z_0-9]*+(:?+[^\-=\?\+\[]|\/)/ ) {
+		}elsif ( $line =~ m/\Q^[A-Za-z_A-Za-z_0-9]+(:?+[^\-=\?\+\[]|\/)\E/ ) {
 			tp_result 'FAIL', file_pos($parser)."'\${$line}': Unportable parameter expansion or bad substitution.";
 		}
 		
@@ -805,7 +803,7 @@ sub OnExpansion {
 			tp_result 'FAIL', file_pos($parser)."'\${$line}' - indirect expansion isn't portable.";
 		}
 		
-		if ( $line =~ s/^!?(\w++(\[.*)?+)[:\-=\?\+\/]?.*/$1/ ) {
+		if ( $line =~ s/\Q^!?(\w+(\[.*)?+)[:\-=\?\+\/]?.*\E/$1/ ) {
 			&$checkvar($line);
 		}
 		
