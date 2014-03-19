@@ -1,6 +1,6 @@
 # values used to make .spec from .spec.sed
 PACKAGE=lsb-appchk-shell
-VERSION=4.1.1
+VERSION=4.90.0
 RELEASE=1
 EYAPP_VER=1.181
 EYAPP_URL=http://search.cpan.org/CPAN/authors/id/C/CA/CASIANO/
