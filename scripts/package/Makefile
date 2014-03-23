@@ -24,11 +24,10 @@ TMP_BUILD_DIR=/tmp/$(FULL_PACKAGE_NAME)
 # Handle different version generation for snapshots than for official builds
 # OFFICIAL_RELEASE should be set to the tag to extract from CVS
 ifdef OFFICIAL_RELEASE
-VERSION_SUFFIX=
 # EXPORT_TAG should be set to the cvs tag to use
 EXPORT_TAG=-r $(OFFICIAL_RELEASE)
 else
-VERSION_SUFFIX=.$(ISO_DATE)
+RELEASE=0.$(ISO_DATE)
 EXPORT_TAG=-D now
 endif
 
