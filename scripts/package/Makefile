@@ -1,11 +1,14 @@
 # values used to make .spec from .spec.sed
 PACKAGE=lsb-appchk-shell
-VERSION=5.0.0
+VERSION=5.0.1
 BUILDNO=1
+# default version we will test against - change as needed
+LSBVERSION=5.0
+
+# perl module/command needed to generate the checker code
 EYAPP_VER=1.181
 EYAPP_URL=http://search.cpan.org/CPAN/authors/id/C/CA/CASIANO/
 
-#
 # Derive date string for daily snapshots
 ISO_DATE=$(shell date +"%Y%m%d")
 PWD=$(shell pwd)

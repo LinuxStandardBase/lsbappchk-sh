@@ -34,13 +34,17 @@ make
 make install
 cd ..
 # now the checker
-export PERL5LIB=perl-local/lib/perl5/site_perl/
+#export PERL5LIB=perl-local/lib/perl5/site_perl/
+# now generating to different place, may have to add some
+# logic to try to detect the location
+export PERL5LIB=./perl-local/share/perl5
 # for some reason, some perl installs put the binary in "local"
 if [ -d "./perl-local/local" ];then
   export PATH=$PATH:$(pwd)/perl-local/local/bin
 else
   export PATH=$PATH:$(pwd)/perl-local/bin
 fi
+
 make
 
 #==================================================

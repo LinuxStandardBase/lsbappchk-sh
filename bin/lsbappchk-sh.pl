@@ -27,7 +27,7 @@ my $VERSION = "0.9";
 
 my $input_files = {}; # $input_files->{$file}->{FILENAME, TYPE, JOURNAL};
 my @file_order = ();
-my $cmdlist_file = $FindBin::Bin."/../share/appchk/sh-cmdlist-4.1";
+my $cmdlist_file = $FindBin::Bin."/../share/appchk/sh-cmdlist-5.0";
 my $lsb_ver;
 
 #-----------------------------------------------------------------------
@@ -89,7 +89,7 @@ if ( !@file_order ) {
 }
 
 if ( !defined $lsb_ver ) {
-	$lsb_ver = '4.1';
+	$lsb_ver = '5.0';
 }
 
 sub print_help {
