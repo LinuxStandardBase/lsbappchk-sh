@@ -1,13 +1,14 @@
 # values used to make .spec from .spec.sed
 PACKAGE=lsb-appchk-shell
 VERSION=5.0.1
-BUILDNO=1
+BUILDNO=2
 # default version we will test against - change as needed
 LSBVERSION=5.0
 
 # perl module/command needed to generate the checker code
 EYAPP_VER=1.181
-EYAPP_URL=http://search.cpan.org/CPAN/authors/id/C/CA/CASIANO/
+EYAPP_URL=http://search.cpan.org/CPAN/authors/id/C/CA/CASIANO
+EYAPP_ALT_URL=http://ftp.linuxfoundation.org/pub/lsb/impl/packages
 
 # Derive date string for daily snapshots
 ISO_DATE=$(shell date +"%Y%m%d")
@@ -112,6 +113,7 @@ else
 endif
 
 $(SOURCE2):
-	wget $(EYAPP_URL)/$(SOURCE2)
+	wget $(EYAPP_URL)/$(SOURCE2) || \
+	  wget $(EYAPP_ALT_URL)/$(SOURCE2)
 
 .PHONY : tarball rpm_package
